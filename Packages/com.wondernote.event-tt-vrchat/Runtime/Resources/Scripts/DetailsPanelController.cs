@@ -213,7 +213,10 @@ public class DetailsPanelController : UdonSharpBehaviour
             displayedImageURL.text = imageUrl;
         }
 
-        string widthPercentString  = ExtractingStrings(content, "width:", "%");
+        string widthPercentString = ExtractingStrings(content, "width:", "%");
+        if (string.IsNullOrEmpty(widthPercentString)) {
+            widthPercentString = "100";
+        }
         float widthRatio = float.Parse(widthPercentString ) / 100.0f;
         float maxWidth = 1056f;
         float imageWidth = maxWidth * widthRatio;
@@ -266,8 +269,16 @@ public class DetailsPanelController : UdonSharpBehaviour
     private string ExtractingStrings(string targetContent, string prefix, string suffix)
     {
         string startMarker = prefix;
-        int startIndex = targetContent.IndexOf(startMarker) + startMarker.Length;
+        int startIndex = targetContent.IndexOf(startMarker);
+        if (startIndex == -1) {
+            return "";
+        }
+        startIndex += startMarker.Length;
+
         int endIndex = targetContent.IndexOf(suffix, startIndex);
+        if (endIndex == -1) {
+            return "";
+        }
         return targetContent.Substring(startIndex, endIndex - startIndex).Trim();
     }
 

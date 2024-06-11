@@ -380,7 +380,7 @@ public class EventTimetable : UdonSharpBehaviour
                 int numberOfRows = Mathf.CeilToInt((float)childCount / itemsPerRow);
                 timeItemHeight = numberOfRows * grid.cellSize.y + (numberOfRows - 1) * grid.spacing.y + gridLayoutPaddingTop + gridLayoutPaddingBottom;
 
-                int lastRowIndex = (childCount / itemsPerRow) * itemsPerRow;
+                int lastRowIndex = childCount == 0 ? 0 : ((childCount - 1) / itemsPerRow) * itemsPerRow;
                 bool allTextsOneLine = true;
                 for (int i = lastRowIndex; i < childCount; i++) {
                     EventItemScript eventItemScript = timeContainersTransform.GetChild(i).GetComponent<EventItemScript>();

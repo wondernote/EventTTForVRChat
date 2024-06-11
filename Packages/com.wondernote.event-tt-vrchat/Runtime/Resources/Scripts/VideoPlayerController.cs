@@ -69,7 +69,7 @@ public class VideoPlayerController : UdonSharpBehaviour
         SetPlaceholder();
 
         VRCUrl currentUrl = videoUrlInputField.GetUrl();
-        if ((currentUrl.Get() != lastUrl.Get()) && currentUrl.Get().StartsWith("https://youtu.be/"))
+        if ((currentUrl.Get() != lastUrl.Get()) && (currentUrl.Get().StartsWith("https://youtu.be/") || currentUrl.Get().StartsWith("https://www.youtube.com/")))
         {
             videoPlayer.PlayURL(currentUrl);
             lastUrl = currentUrl;

@@ -1,4 +1,4 @@
-﻿
+
 using UdonSharp;
 using UnityEngine;
 using UnityEngine.UI;
@@ -90,7 +90,7 @@ public class DetailsPanelController : UdonSharpBehaviour
 
         SetDetailsContent(_details);
 
-        if(string.IsNullOrEmpty(_groupID))
+        if(string.IsNullOrEmpty(_groupID) || !_groupID.StartsWith("grp_"))
         {
             groupButton.gameObject.SetActive(false);
         } else {

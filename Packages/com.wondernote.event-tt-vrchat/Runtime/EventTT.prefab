@@ -472,7 +472,7 @@ MonoBehaviour:
       m_Calls: []
   m_text: "\u203B\u300CAllow Untrusted URLs\u300D\u3092ON\u306B\u3057\u3066\u304F\u3060\u3055\u3044\u3002"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 191fb663d4994e943a0bc6d629e271fe, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 08a6e414b39e7404d8951b2d6067761a, type: 2}
   m_sharedMaterial: {fileID: -2285745221286982244, guid: 6d923fcca4bec0b40b26d3065ffec2d9,
     type: 2}
   m_fontSharedMaterials: []
@@ -1564,7 +1564,7 @@ MonoBehaviour:
       m_Calls: []
   m_text: 0:00 / 0:00
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 191fb663d4994e943a0bc6d629e271fe, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 08a6e414b39e7404d8951b2d6067761a, type: 2}
   m_sharedMaterial: {fileID: -2285745221286982244, guid: 6d923fcca4bec0b40b26d3065ffec2d9,
     type: 2}
   m_fontSharedMaterials: []
@@ -2164,11 +2164,10 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\u25A0\u30A4\u30D9\u30F3\u30C8\u306E\u767B\u9332\u306F\u30A6\u30A7\u30D6\u30B5\u30A4\u30C8
-    (https://wondernote.net/) \u304B\u3089\u3000\u25A0\u30A2\u30BB\u30C3\u30C8\u306E\u30C0\u30A6\u30F3\u30ED\u30FC\u30C9\u306FVCC\u30FBGitHub\u30FBBOOTH\u304B\u3089\u3000\u203B\u8A73\u3057\u304F\u306F\u5DE6\u8A18\u30B5\u30A4\u30C8\u3092\u3054\u89A7\u304F\u3060\u3055\u3044"
+  m_text: 
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 191fb663d4994e943a0bc6d629e271fe, type: 2}
-  m_sharedMaterial: {fileID: 1890032180066065035, guid: 191fb663d4994e943a0bc6d629e271fe,
+  m_fontAsset: {fileID: 11400000, guid: 08a6e414b39e7404d8951b2d6067761a, type: 2}
+  m_sharedMaterial: {fileID: -3028277303144913610, guid: 08a6e414b39e7404d8951b2d6067761a,
     type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
@@ -2743,6 +2742,7 @@ MonoBehaviour:
   detailsImagePrefab: {fileID: 9069218299313968782}
   videoPlayerPrefab: {fileID: 7501616931274471125}
   linkedFieldContainerPrefab: {fileID: 3829559504839862625}
+  FooterText: {fileID: 1829191344823418677}
   audioManager: {fileID: 5570022696490068848}
 --- !u!114 &8670105412392104557
 MonoBehaviour:
@@ -4401,7 +4401,7 @@ MonoBehaviour:
       m_Calls: []
   m_text: "(\u4FE1\u983C\u3055\u308C\u3066\u3044\u306A\u3044URL\u3092\u8A31\u53EF)<alpha=#00>#######################"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 191fb663d4994e943a0bc6d629e271fe, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 08a6e414b39e7404d8951b2d6067761a, type: 2}
   m_sharedMaterial: {fileID: -2285745221286982244, guid: 6d923fcca4bec0b40b26d3065ffec2d9,
     type: 2}
   m_fontSharedMaterials: []

@@ -133,6 +133,14 @@ MonoBehaviour:
     m_ClosingTagArray: 
     m_OpeningTagUnicodeArray: 
     m_ClosingTagUnicodeArray: 
+  - m_Name: link-lightweight
+    m_HashCode: 1355105203
+    m_OpeningDefinition: <color=#EE6A42>
+    m_ClosingDefinition: </color>
+    m_OpeningTagArray: 3c000000630000006f0000006c0000006f000000720000003d000000230000004500000045000000360000004100000034000000320000003e000000
+    m_ClosingTagArray: 3c0000002f000000630000006f0000006c0000006f000000720000003e000000
+    m_OpeningTagUnicodeArray: 
+    m_ClosingTagUnicodeArray: 
   - m_Name: Normal
     m_HashCode: -1183493901
     m_OpeningDefinition: 

@@ -79,6 +79,7 @@ public class EventTimetable : UdonSharpBehaviour
     [SerializeField] private GameObject detailsImagePrefab;
     [SerializeField] private GameObject videoPlayerPrefab;
     [SerializeField] private GameObject linkedFieldContainerPrefab;
+    [SerializeField] private TextMeshProUGUI FooterText;
 
     [Header("Audio Settings")]
     [SerializeField] private AudioManager audioManager;
@@ -107,6 +108,7 @@ public class EventTimetable : UdonSharpBehaviour
         targetScrollPosition = 1.0f;
         returnButtonImage.color = new Color(1f, 1f, 1f, 0f);
         returnButton.SetActive(false);
+        FooterText.text = "■イベントの登録はウェブサイト (https://wondernote.net/) から　■アセットのダウンロードはVCC・GitHub・BOOTHから　※詳しくは左記サイトをご覧ください";
         FetchTimetableInfo();
     }
 
@@ -330,7 +332,9 @@ public class EventTimetable : UdonSharpBehaviour
             TextMeshProUGUI dateText = dateItem.transform.Find("DateTextBackground/BackgroundImage/DateText").GetComponent<TextMeshProUGUI>();
             if (dateText != null)
             {
-                dateText.text = dateTime.ToString("M月d日");
+                string[] japaneseWeekDays = { "日", "月", "火", "水", "木", "金", "土" };
+                string dayOfWeek = japaneseWeekDays[(int)dateTime.DayOfWeek];
+                dateText.text = dateTime.ToString("M月d日") + $" ({dayOfWeek})";
             }
 
             return dateItem;

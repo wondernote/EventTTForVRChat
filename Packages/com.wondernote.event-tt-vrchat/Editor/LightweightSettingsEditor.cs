@@ -11,9 +11,9 @@ public class LightweightSettingsEditor : Editor
         settings.enableLightweight = EditorGUILayout.Toggle("軽量化", settings.enableLightweight);
 
         EditorGUILayout.HelpBox(
-            "オンにすると、アセット容量が約5MBから約700KBに削減されます。ただし、以下の機能が使えません。\n" +
+            "オンにすると、アセット容量が約5MBから約800KBに削減されます。ただし、以下の機能が使えません。\n" +
             "●日本語のデザインフォント\n" +
-            "●リンクのコピー＆ペースト（画像・動画を除く）",
+            "●リンクのコピー＆ペースト",
             MessageType.Info
         );
 

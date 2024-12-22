@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using System;
+using VRC.SDK3.Data;
 
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class EventItemScript : UdonSharpBehaviour
@@ -13,66 +14,35 @@ public class EventItemScript : UdonSharpBehaviour
     [SerializeField] private TextMeshProUGUI dateTimeText;
     [SerializeField] private Image dateTimeTextBackground;
     [SerializeField] private RawImage thumbnailImage;
-    private int imageIndex;
-    private int gridX;
-    private int gridY;
 
     private Canvas canvas;
     private CanvasGroup mainPanelCanvasGroup;
     private GameObject detailsPanelPrefab;
     private GameObject detailsTextPrefab;
     private GameObject detailsImagePrefab;
-    private GameObject videoPlayerPrefab;
+    private GameObject[] videoPlayerPrefabs;
     private GameObject linkedFieldContainerPrefab;
 
+    private int contentID;
     private string title;
     private DateTime dateTime;
     private string summary;
     private string details;
     private Texture2D texture;
-    private bool isImageSetSuccess;
+    private bool isThumbnailSet = false;
     private string groupID;
     private int supportedModel;
-
-    private float thumbnailWidth;
-    private float thumbnailHeight;
-    private Vector2 uvSize;
 
     private AudioManager audioManager;
     private bool isClicked = false;
 
-    public void SetImageIndex(int index)
-    {
-        imageIndex = index;
-    }
-    public int GetImageIndex()
-    {
-        return imageIndex;
-    }
-
-    public void SetGridX(int x)
-    {
-        gridX = x;
-    }
-    public int GetGridX()
-    {
-        return gridX;
-    }
-
-    public void SetGridY(int y)
-    {
-        gridY = y;
-    }
-    public int GetGridY()
-    {
-        return gridY;
-    }
+    private EventTimetable eventTimetable;
 
     public void SetTitle(string _title)
     {
         title = _title;
         titleText.text = title;
-        titleText.ForceMeshUpdate();
+        titleText.ForceMeshUpdate(true);
     }
 
     public int GetTextLineCount()
@@ -92,48 +62,49 @@ public class EventItemScript : UdonSharpBehaviour
         }
     }
 
-    public void SetThumbnailImage(Texture2D _texture, bool imageSetSuccess)
+    public void SetThumbnailImage(Texture2D _texture, bool status)
     {
         texture = _texture;
-        isImageSetSuccess = imageSetSuccess;
+        isThumbnailSet = status;
         thumbnailImage.texture = texture;
-    }
-    public RawImage GetThumbnailImage()
-    {
-        return thumbnailImage;
+
+        if (status) {
+        Rect currentRect = thumbnailImage.uvRect;
+        thumbnailImage.uvRect = new Rect(currentRect.x, currentRect.y + currentRect.height, currentRect.width, -currentRect.height);
+        }
     }
 
-    public void SetDetails(string _summary, string _details, string _groupID, int _supportedModel, Canvas _canvas, GameObject _detailsPanelPrefab, GameObject _detailsTextPrefab, GameObject _detailsImagePrefab, GameObject _videoPlayerPrefab, GameObject _linkedFieldContainerPrefab, CanvasGroup _mainPanelCanvasGroup, float _thumbnailWidth, float _thumbnailHeight, Vector2 _uvSize, AudioManager _audioManager)
+    public void SetDetails(int _contentID, string _summary, string _details, string _groupID, int _supportedModel, Canvas _canvas, GameObject _detailsPanelPrefab, GameObject _detailsTextPrefab, GameObject _detailsImagePrefab, GameObject[] _videoPlayerPrefabs, GameObject _linkedFieldContainerPrefab, CanvasGroup _mainPanelCanvasGroup, AudioManager _audioManager, EventTimetable timetable)
     {
+        contentID = _contentID;
         summary = _summary;
         details = _details;
         groupID = _groupID;
         supportedModel = _supportedModel;
-
         canvas = _canvas;
         mainPanelCanvasGroup = _mainPanelCanvasGroup;
         detailsPanelPrefab = _detailsPanelPrefab;
         detailsTextPrefab = _detailsTextPrefab;
         detailsImagePrefab = _detailsImagePrefab;
-        videoPlayerPrefab = _videoPlayerPrefab;
+        videoPlayerPrefabs = _videoPlayerPrefabs;
         linkedFieldContainerPrefab = _linkedFieldContainerPrefab;
         audioManager = _audioManager;
-
-        thumbnailWidth = _thumbnailWidth;
-        thumbnailHeight = _thumbnailHeight;
-        uvSize = _uvSize;
+        eventTimetable = timetable;
     }
 
     public void OnThumbnailClicked()
     {
-        if(imageIndex >= 0) {
+        if(isThumbnailSet) {
             GameObject detailsPanel = Instantiate(detailsPanelPrefab);
             detailsPanel.transform.SetParent(canvas.transform, false);
 
             DetailsPanelController detailsPanelController = detailsPanel.GetComponent<DetailsPanelController>();
             if (detailsPanelController != null)
             {
-                detailsPanelController.SetEventDetails(title, dateTime, summary, details, texture, isImageSetSuccess, groupID, supportedModel, mainPanelCanvasGroup, gridX, gridY, thumbnailWidth, thumbnailHeight, uvSize, detailsTextPrefab, detailsImagePrefab, videoPlayerPrefab, linkedFieldContainerPrefab, audioManager);
+                DataList detailedImgsByContentList = eventTimetable.GetDetailedImgsByContent(contentID);
+                TextureFormat textureFormat = eventTimetable.GetTextureFormat();
+
+                detailsPanelController.SetEventDetails(title, dateTime, summary, details, texture, groupID, supportedModel, mainPanelCanvasGroup, detailsTextPrefab, detailsImagePrefab, videoPlayerPrefabs, linkedFieldContainerPrefab, audioManager, detailedImgsByContentList, textureFormat, eventTimetable);
             }
 
             mainPanelCanvasGroup.interactable = false;

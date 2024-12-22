@@ -678,6 +678,8 @@ MonoBehaviour:
   dateTimeText: {fileID: 2029695623836497452}
   groupButton: {fileID: 2056211883739751549}
   summaryText: {fileID: 2426184139316596823}
+  videoPlayerPrefab: {fileID: 3586603313187116908, guid: 3f73e26fde5086440bcbdc75fca37412,
+    type: 3}
   scrollRect: {fileID: 4260787292958096511}
 --- !u!114 &2951625753486921642
 MonoBehaviour:

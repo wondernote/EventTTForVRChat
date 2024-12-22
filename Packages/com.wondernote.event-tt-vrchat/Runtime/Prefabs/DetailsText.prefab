@@ -160,7 +160,6 @@ MonoBehaviour:
     SerializationNodes: []
   _udonSharpBackingUdonBehaviour: {fileID: 4674090739612295302}
   textMeshPro: {fileID: 8384328640614887140}
-  lineRenderers_0: []
 --- !u!114 &4674090739612295302
 MonoBehaviour:
   m_ObjectHideFlags: 0

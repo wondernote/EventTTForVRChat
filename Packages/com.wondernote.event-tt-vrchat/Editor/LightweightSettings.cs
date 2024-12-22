@@ -12,21 +12,27 @@ public class LightweightSettings : ScriptableObject
     public TMP_FontAsset liberationSansExtendedUnicodeFont;
     public TMP_FontAsset genJyuuGothicBoldFontAsset;
     public bool enableLightweight;
-    private string scriptPath;
 
     public string GetScriptPath()
     {
-        if (string.IsNullOrEmpty(scriptPath))
-        {
             string[] scriptGuids = AssetDatabase.FindAssets("DetailsPanelController t:Script");
             if (scriptGuids.Length > 0) {
-                scriptPath = AssetDatabase.GUIDToAssetPath(scriptGuids[0]);
+                return AssetDatabase.GUIDToAssetPath(scriptGuids[0]);
             } else {
                 Debug.LogError("DetailsPanelController.cs が見つかりません");
                 return null;
             }
+    }
+
+    public string GetTextLinkerScriptPath()
+    {
+        string[] scriptGuids = AssetDatabase.FindAssets("TextLinker t:Script");
+        if (scriptGuids.Length > 0) {
+            return AssetDatabase.GUIDToAssetPath(scriptGuids[0]);
+        } else {
+            Debug.LogError("TextLinker.cs が見つかりません");
+            return null;
         }
-        return scriptPath;
     }
 
     public void SetLightweightFontProperties()
@@ -53,6 +59,7 @@ public class LightweightSettings : ScriptableObject
     public void ToggleTextLinkerCode()
     {
         string scrPath = GetScriptPath();
+
         string[] scriptLines = File.ReadAllLines(scrPath);
 
         using (StreamWriter writer = new StreamWriter(scrPath))
@@ -92,6 +99,38 @@ public class LightweightSettings : ScriptableObject
             }
         }
         AssetDatabase.ImportAsset(scrPath);
+
+        string textLinkerPath = GetTextLinkerScriptPath();
+
+        string[] textLinkerLines = File.ReadAllLines(textLinkerPath);
+
+        using (StreamWriter writer = new StreamWriter(textLinkerPath))
+        {
+            foreach (string line in textLinkerLines)
+            {
+                if (line.Contains("InitializeLinkedField();"))
+                {
+                    if (enableLightweight && !line.TrimStart().StartsWith("//"))
+                    {
+                        writer.WriteLine("// " + line);
+                    }
+                    else if (!enableLightweight && line.TrimStart().StartsWith("//"))
+                    {
+                        writer.WriteLine(line.Substring(3));
+                    }
+                    else
+                    {
+                        writer.WriteLine(line);
+                    }
+                }
+                else
+                {
+                    writer.WriteLine(line);
+                }
+            }
+        }
+        AssetDatabase.ImportAsset(textLinkerPath);
+
     }
 }
 #endif

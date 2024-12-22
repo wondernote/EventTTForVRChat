@@ -1,10 +1,12 @@
-
+﻿
 using UdonSharp;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using VRC.Economy;
 using System;
+using VRC.SDK3.Data;
+using VRC.SDKBase;
 
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class DetailsPanelController : UdonSharpBehaviour
@@ -23,9 +25,10 @@ public class DetailsPanelController : UdonSharpBehaviour
 
     private GameObject detailsTextPrefab;
     private GameObject detailsImagePrefab;
-    private GameObject videoPlayerPrefab;
+    private GameObject[] videoPlayerPrefabs;
     private GameObject linkedFieldContainerPrefab;
     private CanvasGroup mainPanelCanvasGroup;
+    private int currentVideoPrefabIndex = 0;
 
     [Header("Scrollbar Settings")]
     [SerializeField] private ScrollRect scrollRect;
@@ -43,20 +46,17 @@ public class DetailsPanelController : UdonSharpBehaviour
     private float thumbstickSensitivity = 22.5f;
     private bool isPointerHoveringDetails = true;
 
-    private float originalImageWidth = 2048.0f;
-    private float originalImageHeight = 2048.0f;
-
     private AudioManager audioManager;
+    private DataList detailedImgsByContentList;
+    private TextureFormat textureFormat;
+    private EventTimetable eventTimetable;
 
-    public void SetEventDetails(string _title, DateTime _dateTime, string _summary, string _details, Texture2D _texture, bool imageSetSuccess, string _groupID, int _supportedModel, CanvasGroup _mainPanelCanvasGroup, int _gridX, int _gridY, float _thumbnailWidth, float _thumbnailHeight, Vector2 _uvSize, GameObject _detailsTextPrefab, GameObject _detailsImagePrefab, GameObject _videoPlayerPrefab, GameObject _linkedFieldContainerPrefab, AudioManager _audioManager)
+    public void SetEventDetails(string _title, DateTime _dateTime, string _summary, string _details, Texture2D _texture, string _groupID, int _supportedModel, CanvasGroup _mainPanelCanvasGroup, GameObject _detailsTextPrefab, GameObject _detailsImagePrefab, GameObject[] _videoPlayerPrefabs, GameObject _linkedFieldContainerPrefab, AudioManager _audioManager, DataList _detailedImgsByContentList, TextureFormat _textureFormat, EventTimetable timetable)
     {
         detailsThumbnailImage.texture = _texture;
 
-        if(imageSetSuccess){
-            Vector2 uvPosition = new Vector2(_gridX * _thumbnailWidth / originalImageWidth, _gridY * _thumbnailHeight / originalImageHeight);
-            Rect uvRect = new Rect(uvPosition, _uvSize);
-            detailsThumbnailImage.uvRect = uvRect;
-        }
+        Rect currentRect = detailsThumbnailImage.uvRect;
+        detailsThumbnailImage.uvRect = new Rect(currentRect.x, currentRect.y + currentRect.height, currentRect.width, -currentRect.height);
 
         switch (_supportedModel)
         {
@@ -82,11 +82,14 @@ public class DetailsPanelController : UdonSharpBehaviour
         dateTimeText.text = _dateTime.ToString($"M月d日({dayOfWeek}) HH:mm～");
 
         summaryText.text = _summary;
-
         detailsTextPrefab = _detailsTextPrefab;
         detailsImagePrefab = _detailsImagePrefab;
-        videoPlayerPrefab = _videoPlayerPrefab;
+        videoPlayerPrefabs = _videoPlayerPrefabs;
         linkedFieldContainerPrefab = _linkedFieldContainerPrefab;
+        detailedImgsByContentList = _detailedImgsByContentList;
+        textureFormat = _textureFormat;
+        audioManager = _audioManager;
+        eventTimetable = timetable;
 
         SetDetailsContent(_details);
 
@@ -97,7 +100,6 @@ public class DetailsPanelController : UdonSharpBehaviour
             groupID = _groupID;
         }
 
-        audioManager = _audioManager;
         mainPanelCanvasGroup = _mainPanelCanvasGroup;
     }
 
@@ -131,61 +133,57 @@ public class DetailsPanelController : UdonSharpBehaviour
 
             lastIndex = figureEnd;
         }
+
+        detailedImgsByContentList.Clear();
     }
 
     private void CreateTextPrefab(string content)
     {
         GameObject detailsText = Instantiate(detailsTextPrefab);
+        TextLinker textLinker = detailsText.GetComponent<TextLinker>();
+        textLinker.SetLinkedFieldContainerPrefab(linkedFieldContainerPrefab);
 
         content = content
         .Replace("</h2>", "</h2><line-height=2.7em><br></line-height>")
         .Replace("</h3>", "</h3><line-height=2.5em><br></line-height>")
         .Replace("</h4>", "</h4><line-height=2em><br></line-height>")
         .Replace("</p>", "</p><line-height=2.5em><br></line-height>")
+        .Replace("</ul></li>", "</ulli>")
+        .Replace("</ol></li>", "</olli>")
         .Replace("</ul>", "</ul><line-height=1.5em><br></line-height>")
         .Replace("</ol>", "</ol><line-height=1.5em><br></line-height>")
-        .Replace("&nbsp;", "<line-height=1em><br></line-height>");
+        .Replace("</ulli>", "</ul></li>")
+        .Replace("</olli>", "</ol></li>")
+        .Replace("<p>&nbsp;</p>", "<p><line-height=1em><br></line-height></p>");
 
         string unescapedRichText = ConvertHtmlToCustomRichText(content);
-        string escapedRichText = unescapedRichText.Replace("&lt;", "<").Replace("&gt;", ">").Replace("&amp;", "&");
+        string escapedRichText = unescapedRichText.Replace("&lt;", "<").Replace("&gt;", ">").Replace("&amp;", "&").Replace("</size>", "</size>\u200B").Replace("&nbsp;", "\u2002").Replace("˸", ":");
         detailsText.GetComponent<TextMeshProUGUI>().text = escapedRichText;
-        TextLinker textLinker = detailsText.GetComponent<TextLinker>();
+
         textLinker.SetUnescapedRichText(unescapedRichText);
-        textLinker.SetLinkedFieldContainerPrefab(linkedFieldContainerPrefab);
+
         detailsText.transform.SetParent(detailsContainer, false);
     }
 
     private void CreateVideoPrefab(string content)
     {
-        GameObject videoPlayer = Instantiate(videoPlayerPrefab);
-        Transform screenTransform = videoPlayer.transform.Find("Screen/VideoUrlBackground/InitialVideoUrlContainer");
-        Transform initialVideoUrlTransform = screenTransform.Find("InitialVideoUrl");
-        Transform videoDisplayedURLTransform = initialVideoUrlTransform.Find("DisplayedURL");
+        GameObject prefabToInstantiate = videoPlayerPrefabs[currentVideoPrefabIndex];
+        currentVideoPrefabIndex = (currentVideoPrefabIndex + 1) % videoPlayerPrefabs.Length;
 
+        GameObject videoPlayer = Instantiate(prefabToInstantiate);
         string videoUrl = ExtractingStrings(content, "data-oembed-url=\"", "\"");
 
-        InputField inputField = initialVideoUrlTransform.GetComponent<InputField>();
-        if (inputField != null) {
-            inputField.text = videoUrl;
+        GameObject videoUrlBgImage = videoPlayer.transform.Find("Screen/VideoUrlBackground").gameObject;
+        RawImage thumbnailRawImage = videoUrlBgImage.GetComponent<RawImage>();
+        SetDetailedImage(videoUrl, thumbnailRawImage);
+
+        VideoPlayerController videoPlayerController = videoPlayer.GetComponent<VideoPlayerController>();
+        VRCUrl videoVRCUrl = eventTimetable.FindMatchingVRCUrl(videoUrl);
+        if (videoPlayerController != null)
+        {
+            videoPlayerController.SetVRCUrl(videoVRCUrl);
+            videoPlayerController.SetAudioManager(audioManager);
         }
-
-        TextMeshProUGUI displayedVideoURL = videoDisplayedURLTransform.GetComponent<TextMeshProUGUI>();
-        if (displayedVideoURL != null) {
-            displayedVideoURL.text = videoUrl;
-        }
-
-        RectTransform initialVideoUrlContainerRect = screenTransform.GetComponent<RectTransform>();
-        RectTransform initialVideoUrlRect = initialVideoUrlTransform.GetComponent<RectTransform>();
-
-        LayoutRebuilder.ForceRebuildLayoutImmediate(initialVideoUrlRect);
-        float videoContainerWidth = initialVideoUrlContainerRect.rect.width;
-        float videoUrlWidth = initialVideoUrlRect.rect.width;
-
-        ContentSizeFitter videoContentSizeFitter = initialVideoUrlRect.GetComponent<ContentSizeFitter>();
-        videoContentSizeFitter.enabled = false;
-
-        float videoNewWidth = Mathf.Min(videoUrlWidth, videoContainerWidth);
-        initialVideoUrlRect.sizeDelta = new Vector2(videoNewWidth, initialVideoUrlRect.sizeDelta.y);
 
         videoPlayer.transform.SetParent(detailsContainer, false);
 
@@ -197,21 +195,7 @@ public class DetailsPanelController : UdonSharpBehaviour
     {
         GameObject detailsImage = Instantiate(detailsImagePrefab);
         GameObject imageItem = detailsImage.transform.Find("Image").gameObject;
-        Transform initialImageTransform = imageItem.transform.Find("InitialImage/InitialImageUrlContainer");
-        Transform initialImageUrlTransform = initialImageTransform.Find("InitialImageUrl");
-        Transform imageDisplayedURLTransform = initialImageUrlTransform.Find("DisplayedURL");
-
-        string imageUrl = ExtractingStrings(content, "src=\"", "\"");
-
-        InputField initialUrlField = initialImageUrlTransform.GetComponent<InputField>();
-        if (initialUrlField != null) {
-            initialUrlField.text = imageUrl;
-        }
-
-        TextMeshProUGUI displayedImageURL = imageDisplayedURLTransform.GetComponent<TextMeshProUGUI>();
-        if (displayedImageURL != null) {
-            displayedImageURL.text = imageUrl;
-        }
+        GameObject initialImage = detailsImage.transform.Find("Image/InitialImage").gameObject;
 
         string widthPercentString = ExtractingStrings(content, "width:", "%");
         if (string.IsNullOrEmpty(widthPercentString)) {
@@ -226,7 +210,8 @@ public class DetailsPanelController : UdonSharpBehaviour
         float aspectHeight = float.Parse(ratioParts[1]);
         float imageHeight = imageWidth * (aspectHeight / aspectWidth);
 
-        RectTransform rectTransform = imageItem.GetComponent<RawImage>().rectTransform;
+        RawImage detailedRawImage = imageItem.GetComponent<RawImage>();
+        RectTransform rectTransform = detailedRawImage.rectTransform;
         rectTransform.sizeDelta = new Vector2(imageWidth, imageHeight);
 
         LayoutElement layoutElement = imageItem.GetComponent<LayoutElement>();
@@ -247,18 +232,12 @@ public class DetailsPanelController : UdonSharpBehaviour
             layoutGroup.childAlignment = TextAnchor.UpperCenter;
         }
 
-        RectTransform initialImageUrlContainerRect = initialImageTransform.GetComponent<RectTransform>();
-        RectTransform initialImageUrlRect = initialImageUrlTransform.GetComponent<RectTransform>();
+        string imageId = ExtractingStrings(content, "data-image-id=\"", "\"");
 
-        LayoutRebuilder.ForceRebuildLayoutImmediate(initialImageUrlRect);
-        float imageContainerWidth = initialImageUrlContainerRect.rect.width;
-        float imageUrlWidth = initialImageUrlRect.rect.width;
-
-        ContentSizeFitter imageContentSizeFitter = initialImageUrlRect.GetComponent<ContentSizeFitter>();
-        imageContentSizeFitter.enabled = false;
-
-        float imageNewWidth = Mathf.Min(imageUrlWidth, imageContainerWidth);
-        initialImageUrlRect.sizeDelta = new Vector2(imageNewWidth, initialImageUrlRect.sizeDelta.y);
+        if (SetDetailedImage(imageId, detailedRawImage))
+        {
+            Destroy(initialImage);
+        }
 
         detailsImage.transform.SetParent(detailsContainer, false);
 
@@ -282,6 +261,42 @@ public class DetailsPanelController : UdonSharpBehaviour
         return targetContent.Substring(startIndex, endIndex - startIndex).Trim();
     }
 
+    private bool SetDetailedImage(string imageId, RawImage rawImage)
+    {
+        for (int i = 0; i < detailedImgsByContentList.Count; i++)
+        {
+            var detailedImageToken = detailedImgsByContentList[i];
+            if (detailedImageToken.TokenType == TokenType.DataDictionary)
+            {
+                var detailedImageDictionary = detailedImageToken.DataDictionary;
+                if (detailedImageDictionary["image_id"] == imageId)
+                {
+                    string base64DetailedImage = detailedImageDictionary["base64DetailedImage"].String;
+                    int detailedImageWidth = (int)detailedImageDictionary["width"].Double;
+                    int detailedImageHeight = (int)detailedImageDictionary["height"].Double;
+
+                    byte[] imageBytes = Convert.FromBase64String(base64DetailedImage);
+                    Texture2D newTexture = new Texture2D(detailedImageWidth, detailedImageHeight, textureFormat, true, false);
+                    newTexture.LoadRawTextureData(imageBytes);
+                    newTexture.Apply();
+
+                    rawImage.texture = newTexture;
+
+                    Rect currentRect = rawImage.uvRect;
+                    rawImage.uvRect = new Rect(currentRect.x, currentRect.y + currentRect.height, currentRect.width, -currentRect.height);
+
+                    return true;
+                }
+            }
+            else
+            {
+                Debug.LogError("An element in detailedImageToken is not a DataDictionary.");
+            }
+        }
+
+        return false;
+    }
+
     private string ConvertHtmlToCustomRichText(string htmlText)
     {
         htmlText = ReplaceTagWithStyle(htmlText, "<h2", "</h2>", "h2-temporary");
@@ -298,8 +313,7 @@ public class DetailsPanelController : UdonSharpBehaviour
         htmlText = AddIdsToLinkTags(htmlText);
         htmlText = ReplaceTagWithStyle(htmlText, "<link", "</link>", "link");
         htmlText = ReplaceTagWithStyle(htmlText, "<p>", "</p>", "", true);
-        htmlText = ReplaceListItems(htmlText, "ul", "・");
-        htmlText = ReplaceListItems(htmlText, "ol", "1.");
+        htmlText = ReplaceListItems(htmlText);
 
         return htmlText;
     }
@@ -376,49 +390,173 @@ public class DetailsPanelController : UdonSharpBehaviour
         return input;
     }
 
-    private string ReplaceListItems(string input, string listType, string listItemPrefix)
+    private string ReplaceListItems(string htmlText)
     {
-        int startIndex = 0;
-
-        while (true)
+        if (!(htmlText.Contains("<ul>") || htmlText.Contains("<ol>")))
         {
-            string startTag = $"<{listType}>";
-            string endTag = $"</{listType}>";
-            startIndex = input.IndexOf(startTag, startIndex);
-            if (startIndex == -1) break;
-
-            int endIndex = input.IndexOf(endTag, startIndex);
-            if (endIndex == -1) break;
-
-            int contentStart = startIndex + startTag.Length;
-            int contentEnd = endIndex;
-            string listContent = input.Substring(contentStart, contentEnd - contentStart);
-
-            string newItemContent = "";
-            int liStart = listContent.IndexOf("<li>");
-            int itemNumber = 1;
-
-            while (liStart != -1)
-            {
-                int liEnd = listContent.IndexOf("</li>", liStart);
-                if (liEnd == -1) break;
-
-                string itemText = listContent.Substring(liStart + 4, liEnd - (liStart + 4));
-                string prefix = listItemPrefix;
-                if (listType == "ol")
-                {
-                    prefix = itemNumber++.ToString() + ". ";
-                }
-                newItemContent += $"<indent=3%>{prefix}{itemText.Trim()}</indent>\n";
-
-                liStart = listContent.IndexOf("<li>", liEnd);
-            }
-
-            input = input.Substring(0, startIndex) + newItemContent + input.Substring(endIndex + endTag.Length);
-            startIndex = startIndex + newItemContent.Length;
+            return htmlText;
         }
 
-        return input;
+        int indentLevel = 0;
+        int[] ulItemCounters = new int[10];
+        int[] olItemCounters = new int[10];
+        string result = "";
+        string[] listTypeStack = new string[10];
+        int stackPointer = -1;
+        bool isInsideListItem = false;
+
+        if (!htmlText.StartsWith("<")) {
+            htmlText = "__TEXT__" + htmlText;
+        }
+
+        htmlText = htmlText.Replace(">", ">__TEXT__").Replace("__TEXT__<", "<");
+
+        string[] tokens = htmlText.Split(new char[] { '<', '>' }, StringSplitOptions.RemoveEmptyEntries);
+
+        string listItemContent = "";
+
+        foreach (string token in tokens)
+        {
+            string trimmedToken = token.Trim();
+
+            if (trimmedToken.StartsWith("/ul") || trimmedToken.StartsWith("/ol"))
+            {
+                indentLevel--;
+                if (stackPointer >= 0) stackPointer--;
+                isInsideListItem = false;
+            }
+            else if (trimmedToken.StartsWith("ul") || trimmedToken.StartsWith("ol"))
+            {
+                indentLevel++;
+                stackPointer++;
+                if (stackPointer < listTypeStack.Length)
+                {
+                    if (trimmedToken.StartsWith("ul"))
+                    {
+                        ulItemCounters[indentLevel] = 0;
+                        listTypeStack[stackPointer] = "ul";
+                    }
+                    else if (trimmedToken.StartsWith("ol"))
+                    {
+                        olItemCounters[indentLevel] = 0;
+                        listTypeStack[stackPointer] = "ol";
+                    }
+                }
+            }
+            else if (trimmedToken.Equals("li"))
+            {
+                if (!string.IsNullOrEmpty(listItemContent))
+                {
+                    if (stackPointer >= 0 && listTypeStack[stackPointer] == "ul")
+                    {
+                        result += $"<indent={(indentLevel - 1) * 3}%>・{listItemContent}</indent>\n";
+                    }
+                    else if (stackPointer >= 0 && listTypeStack[stackPointer] == "ol")
+                    {
+                        result += $"<indent={(indentLevel - 1) * 3}%>{GetFormattedNumber((indentLevel - 1), olItemCounters[(indentLevel - 1)] + 1)} {listItemContent}</indent>\n";
+                    }
+                }
+                listItemContent = "";
+
+                isInsideListItem = true;
+                continue;
+            }
+            else if (trimmedToken.Equals("/li"))
+            {
+                if (!string.IsNullOrEmpty(listItemContent))
+                {
+                    if (stackPointer >= 0 && listTypeStack[stackPointer] == "ul")
+                    {
+                        result += $"<indent={indentLevel * 3}%>・{listItemContent}</indent>\n";
+                    }
+                    else if (stackPointer >= 0 && listTypeStack[stackPointer] == "ol")
+                    {
+                        result += $"<indent={indentLevel * 3}%>{GetFormattedNumber(indentLevel, olItemCounters[indentLevel] + 1)} {listItemContent}</indent>\n";
+                    }
+                }
+                listItemContent = "";
+
+                if (stackPointer >= 0 && listTypeStack[stackPointer] == "ul")
+                {
+                    ulItemCounters[indentLevel]++;
+                }
+                else if (stackPointer >= 0 && listTypeStack[stackPointer] == "ol")
+                {
+                    olItemCounters[indentLevel]++;
+                }
+                isInsideListItem = false;
+            }
+            else if (isInsideListItem && !string.IsNullOrEmpty(trimmedToken))
+            {
+                string content = trimmedToken;
+                if (content.StartsWith("__TEXT__"))
+                {
+                    content = content.Replace("__TEXT__", "").Trim();
+                } else {
+                    content = $"<{content}>";
+                }
+
+                listItemContent += content;
+                continue;
+            }
+            else if (!isInsideListItem && !string.IsNullOrEmpty(trimmedToken))
+            {
+                if (trimmedToken.StartsWith("__TEXT__"))
+                {
+                    string textContent = trimmedToken.Replace("__TEXT__", "");
+                    result += $"{textContent}";
+                }
+                else
+                {
+                    result += $"<{trimmedToken}>";
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private string GetFormattedNumber(int level, int count)
+    {
+        if (level == 1)
+        {
+            return $"{count}.";
+        }
+        else if (level == 2)
+        {
+            return $"{(char)('a' + (count - 1))}.";
+        }
+        else if (level == 3)
+        {
+            return $"{ToRoman(count).ToLower()}.";
+        }
+        else if (level == 4)
+        {
+            return $"{(char)('A' + (count - 1))}.";
+        }
+        else
+        {
+            return $"{ToRoman(count)}.";
+        }
+    }
+
+    private string ToRoman(int number)
+    {
+        if (number < 1) return "";
+        if (number >= 1000) return "M" + ToRoman(number - 1000);
+        if (number >= 900) return "CM" + ToRoman(number - 900);
+        if (number >= 500) return "D" + ToRoman(number - 500);
+        if (number >= 400) return "CD" + ToRoman(number - 400);
+        if (number >= 100) return "C" + ToRoman(number - 100);
+        if (number >= 90) return "XC" + ToRoman(number - 90);
+        if (number >= 50) return "L" + ToRoman(number - 50);
+        if (number >= 40) return "XL" + ToRoman(number - 40);
+        if (number >= 10) return "X" + ToRoman(number - 10);
+        if (number >= 9) return "IX" + ToRoman(number - 9);
+        if (number >= 5) return "V" + ToRoman(number - 5);
+        if (number >= 4) return "IV" + ToRoman(number - 4);
+        if (number >= 1) return "I" + ToRoman(number - 1);
+        return "";
     }
 
     public void GroupButtonPressed()

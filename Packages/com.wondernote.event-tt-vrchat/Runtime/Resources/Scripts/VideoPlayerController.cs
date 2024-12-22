@@ -3,6 +3,7 @@ using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 using VRC.SDK3.Components;
+using VRC.SDK3.Video.Components;
 using VRC.SDK3.Video.Components.Base;
 using VRC.SDK3.Components.Video;
 using TMPro;
@@ -12,13 +13,13 @@ using UnityEngine.UI;
 public class VideoPlayerController : UdonSharpBehaviour
 {
     [Header("Video Player Settings")]
-    [SerializeField] private BaseVRCVideoPlayer videoPlayer;
+    [SerializeField] private VRCUnityVideoPlayer videoPlayer;
+    [SerializeField] private RawImage screenRawImage;
     [SerializeField] private GameObject videoUrlBackground;
-
-    [Header("Input Field Settings")]
-    [SerializeField] private VRCUrlInputField videoUrlInputField;
-    [SerializeField] private Text placeholderText;
-    private VRCUrl lastUrl;
+    [SerializeField] private GameObject YouTubeIcon;
+    [SerializeField] private GameObject LoadingIcon;
+    [SerializeField] private Button videoThumbButton;
+    private RawImage videoRawImage;
 
     [Header("Playback Settings")]
     [SerializeField] private GameObject playButton;
@@ -52,41 +53,66 @@ public class VideoPlayerController : UdonSharpBehaviour
     private bool isFadingIn = false;
     private bool isFadingOut = false;
     private bool isInitialPhaseOver;
-    private bool isHovered = false;
+    private bool isThumbHovered = false;
+    private bool isVideoHovered = false;
+
+    private AudioManager audioManager;
+    private bool isClicked = false;
+    private VRCUrl videoUrl;
 
     private void Start()
     {
-        lastUrl = VRCUrl.Empty;
+        videoRawImage = videoThumbButton.GetComponent<RawImage>();
     }
 
-    public void OnSelect()
+    public void OnPointerDown()
     {
-        placeholderText.text = "";
-    }
-
-    public void OnURLChanged()
-    {
-        SetPlaceholder();
-
-        VRCUrl currentUrl = videoUrlInputField.GetUrl();
-        if ((currentUrl.Get() != lastUrl.Get()) && (currentUrl.Get().StartsWith("https://youtu.be/") || currentUrl.Get().StartsWith("https://www.youtube.com/")))
+        if (!isClicked && audioManager != null)
         {
-            videoPlayer.PlayURL(currentUrl);
-            lastUrl = currentUrl;
+            audioManager.PlayClickSound();
         }
     }
 
-    public void OnDeselect()
+    public void OnPointerUp()
     {
-        SetPlaceholder();
+        if (!isClicked && (videoUrl != VRCUrl.Empty))
+        {
+            YouTubeIcon.SetActive(false);
+            LoadingIcon.SetActive(true);
+            videoPlayer.PlayURL(videoUrl);
+            isClicked = true;
+        }
     }
 
-    private void SetPlaceholder()
+    public void OnPointerEnter()
     {
-        if (string.IsNullOrEmpty(videoUrlInputField.GetUrl().Get()))
+        isThumbHovered = true;
+
+        if (!isClicked && audioManager != null)
         {
-            placeholderText.text = "再生するには上記のURLをコピーしてここに貼り付けてください";
+            videoRawImage.color = new Color32(255, 255, 255, 204);
+            audioManager.PlayHoverSound();
         }
+    }
+
+    public void OnPointerExit()
+    {
+        isThumbHovered = false;
+
+        if (!isClicked)
+        {
+            videoRawImage.color = new Color32(255, 255, 255, 255);
+        }
+    }
+
+    public void SetVRCUrl(VRCUrl url)
+    {
+        videoUrl = url;
+    }
+
+    public void SetAudioManager(AudioManager _audioManager)
+    {
+        audioManager = _audioManager;
     }
 
     public override void OnVideoStart()
@@ -95,13 +121,15 @@ public class VideoPlayerController : UdonSharpBehaviour
             videoDuration = videoPlayer.GetDuration();
             formatVideoDuration = FormatTime(videoDuration);
 
+            screenRawImage.enabled = true;
             videoUrlBackground.SetActive(false);
+
             playerUI.SetActive(true);
             isPlaying = true;
             SetUIButton(isPlaying);
             hasVideoEnded = false;
 
-            if (isHovered) {
+            if (isVideoHovered) {
                 OnScreenPointerEnter();
             } else {
                 OnScreenPointerExit();
@@ -122,10 +150,33 @@ public class VideoPlayerController : UdonSharpBehaviour
 
     public override void OnVideoError(VideoError videoError)
     {
+        if (!isPlaying) {
+            SendCustomEventDelayedSeconds(nameof(ProcessVideoError), 5f);
+        } else {
+            ProcessVideoError();
+        }
+    }
+
+    public void ProcessVideoError()
+    {
+        Color32 newColor;
+
+        if (!isPlaying) {
+            newColor = isThumbHovered ? new Color32(255, 255, 255, 204) : new Color32(255, 255, 255, 255);
+        } else {
+            newColor = isVideoHovered ? new Color32(255, 255, 255, 204) : new Color32(255, 255, 255, 255);
+        }
+
+        videoRawImage.color = newColor;
+
+        YouTubeIcon.SetActive(true);
+        LoadingIcon.SetActive(false);
+        screenRawImage.enabled = false;
         videoUrlBackground.SetActive(true);
         playerUI.SetActive(false);
         isPlaying = false;
         hasVideoEnded = true;
+        isClicked = false;
     }
 
     private void Update()
@@ -162,7 +213,7 @@ public class VideoPlayerController : UdonSharpBehaviour
         isFadingOut = false;
         isFadingIn = true;
         fadeProgress = playerUICanvasGroup.alpha;
-        isHovered = true;
+        isVideoHovered = true;
     }
 
     public void OnScreenPointerExit()
@@ -170,7 +221,7 @@ public class VideoPlayerController : UdonSharpBehaviour
         isFadingIn = false;
         isFadingOut = true;
         fadeProgress = playerUICanvasGroup.alpha;
-        isHovered = false;
+        isVideoHovered = false;
     }
 
     public void SetInitialPhaseOver()

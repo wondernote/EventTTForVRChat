@@ -5,6 +5,7 @@ using UnityEngine.UI;
 using TMPro;
 using System;
 using VRC.SDK3.Data;
+using WonderNote.EventTimeTable;
 
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class EventItemScript : UdonSharpBehaviour
@@ -37,6 +38,7 @@ public class EventItemScript : UdonSharpBehaviour
     private bool isClicked = false;
 
     private EventTimetable eventTimetable;
+    private ProximityToggle proximityToggle;
 
     public void SetTitle(string _title)
     {
@@ -109,6 +111,12 @@ public class EventItemScript : UdonSharpBehaviour
 
             mainPanelCanvasGroup.interactable = false;
             mainPanelCanvasGroup.blocksRaycasts = false;
+
+            CanvasGroup dpGroup = detailsPanel.GetComponent<CanvasGroup>();
+            if (proximityToggle != null && dpGroup != null)
+            {
+                proximityToggle.RegisterDetailsPanel(dpGroup);
+            }
         }
 
         isClicked = false;
@@ -129,5 +137,10 @@ public class EventItemScript : UdonSharpBehaviour
         {
             audioManager.PlayHoverSound();
         }
+    }
+
+    public void SetProximityToggle(ProximityToggle toggle)
+    {
+        proximityToggle = toggle;
     }
 }

@@ -563,7 +563,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   launchedFromSDKPipeline: 0
   completedSDKPipeline: 0
-  blueprintId: wrld_069f612f-59a9-4c3d-8032-3696f735593a
+  blueprintId: wrld_46e2fe98-8f7f-4d8a-bf24-b9b6c4573dfb
   contentType: 1
   assetBundleUnityVersion: 
   fallbackStatus: 0
@@ -597,7 +597,7 @@ MonoBehaviour:
   contentGore: 0
   contentOther: 0
   releasePublic: 0
-  unityVersion: 2022.3.6f1
+  unityVersion: 2022.3.22f1
   udonProducts: []
   Name: 
   NSFW: 0
@@ -607,6 +607,8 @@ MonoBehaviour:
   useAssignedLayers: 0
   DynamicPrefabs: []
   DynamicMaterials:
+  - {fileID: 10754, guid: 0000000000000000f000000000000000, type: 0}
+  - {fileID: 2100000, guid: 2c532fc28158c544eb4d19db0cf97fd4, type: 2}
   - {fileID: 2100000, guid: dc7346e4169899646bfd529be8c1bf32, type: 2}
   LightMapsNear: []
   LightMapsFar: []
@@ -676,6 +678,10 @@ MonoBehaviour:
     - VRC.Udon.UdonBehaviour
   - gameObject: {fileID: 0}
     ID: 17
+    SerializedTypeNames:
+    - VRC.Udon.UdonBehaviour
+  - gameObject: {fileID: 0}
+    ID: 18
     SerializedTypeNames:
     - VRC.Udon.UdonBehaviour
   portraitCameraPositionOffset: {x: 0, y: 0, z: 0}

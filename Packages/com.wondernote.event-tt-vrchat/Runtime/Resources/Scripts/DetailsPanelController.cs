@@ -1,4 +1,4 @@
-﻿
+
 using UdonSharp;
 using UnityEngine;
 using UnityEngine.UI;
@@ -7,6 +7,7 @@ using VRC.Economy;
 using System;
 using VRC.SDK3.Data;
 using VRC.SDKBase;
+using WonderNote.EventTimeTable;
 
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class DetailsPanelController : UdonSharpBehaviour
@@ -141,7 +142,7 @@ public class DetailsPanelController : UdonSharpBehaviour
     {
         GameObject detailsText = Instantiate(detailsTextPrefab);
         TextLinker textLinker = detailsText.GetComponent<TextLinker>();
-        textLinker.SetLinkedFieldContainerPrefab(linkedFieldContainerPrefab);
+//         textLinker.SetLinkedFieldContainerPrefab(linkedFieldContainerPrefab);
 
         content = content
         .Replace("</h2>", "</h2><line-height=2.7em><br></line-height>")
@@ -271,19 +272,22 @@ public class DetailsPanelController : UdonSharpBehaviour
                 var detailedImageDictionary = detailedImageToken.DataDictionary;
                 if (detailedImageDictionary["image_id"] == imageId)
                 {
-                    string base64DetailedImage = detailedImageDictionary["base64DetailedImage"].String;
                     int detailedImageWidth = (int)detailedImageDictionary["width"].Double;
                     int detailedImageHeight = (int)detailedImageDictionary["height"].Double;
 
-                    byte[] imageBytes = Convert.FromBase64String(base64DetailedImage);
-                    Texture2D newTexture = new Texture2D(detailedImageWidth, detailedImageHeight, textureFormat, true, false);
+                    byte[] imageBytes = eventTimetable.GetDetailedImageBytes(imageId);
+                    if (imageBytes == null) return false;
+
+                    Texture2D newTexture = new Texture2D(detailedImageWidth, detailedImageHeight, textureFormat, false, false);
                     newTexture.LoadRawTextureData(imageBytes);
-                    newTexture.Apply();
+                    newTexture.Apply(false, true);
 
                     rawImage.texture = newTexture;
 
                     Rect currentRect = rawImage.uvRect;
                     rawImage.uvRect = new Rect(currentRect.x, currentRect.y + currentRect.height, currentRect.width, -currentRect.height);
+
+                    eventTimetable.runtimeTextures[eventTimetable.runtimeTextureCount++] = newTexture;
 
                     return true;
                 }
@@ -311,7 +315,7 @@ public class DetailsPanelController : UdonSharpBehaviour
         htmlText = ReplaceTagWithStyle(htmlText, "<mark class=\"underlineMarker-pink\">", "</mark>", "underlineMarker-pink");
         htmlText = ReplaceTagWithStyle(htmlText, "<mark class=\"underlineMarker-green\">", "</mark>", "underlineMarker-green");
         htmlText = AddIdsToLinkTags(htmlText);
-        htmlText = ReplaceTagWithStyle(htmlText, "<link", "</link>", "link");
+        htmlText = ReplaceTagWithStyle(htmlText, "<link", "</link>", "link-lightweight");
         htmlText = ReplaceTagWithStyle(htmlText, "<p>", "</p>", "", true);
         htmlText = ReplaceListItems(htmlText);
 
@@ -655,6 +659,20 @@ public class DetailsPanelController : UdonSharpBehaviour
 
     public void CloseDetails()
     {
+        int start = eventTimetable.thumbnailTextureCount;
+        int end = eventTimetable.runtimeTextureCount;
+
+        for (int i = start; i < end; i++)
+        {
+            var tex = eventTimetable.runtimeTextures[i];
+            if (tex != null) {
+                Destroy((UnityEngine.Object)tex);
+                eventTimetable.runtimeTextures[i] = null;
+            }
+        }
+
+        eventTimetable.runtimeTextureCount = eventTimetable.thumbnailTextureCount;
+
         Destroy(this.gameObject);
         mainPanelCanvasGroup.interactable = true;
         mainPanelCanvasGroup.blocksRaycasts = true;

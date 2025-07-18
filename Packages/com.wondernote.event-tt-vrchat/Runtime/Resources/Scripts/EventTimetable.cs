@@ -11,6 +11,7 @@ using VRC.SDK3.Image;
 using VRC.Economy;
 using System;
 using TMPro;
+using WonderNote.EventTimeTable;
 
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class EventTimetable : UdonSharpBehaviour
@@ -40,6 +41,7 @@ public class EventTimetable : UdonSharpBehaviour
     [SerializeField] private Sprite noEventsSprite;
     [SerializeField] private Sprite loadErrorSprite;
     [SerializeField] private Texture2D blankLogoImage;
+    [SerializeField] private GameObject previewQuad;
 
     [Header("Scrollbar Settings")]
     [SerializeField] private CanvasGroup scrollViewCanvasGroup;
@@ -108,9 +110,9 @@ public class EventTimetable : UdonSharpBehaviour
     private bool isPointerHoveringMain = false;
     private TextureFormat textureFormat;
 
-    private const int FRAME_PROCESS_LIMIT_MS = 20;
+    private const int FRAME_PROCESS_LIMIT_MS = 5;
     private int jsonParseIndex = 0;
-    private int imgsJsonParseIndex ;
+    private int imgsJsonParseIndex;
     private DataToken cachedJsonResultImgs;
     private DataToken cachedJsonResult;
 
@@ -147,6 +149,26 @@ public class EventTimetable : UdonSharpBehaviour
 
     private int eventDisplayIndex = 0;
 
+    private const int MAX_RUNTIME_TEXTURES = 1600;
+    [HideInInspector] public Texture2D[] runtimeTextures;
+    [HideInInspector] public int thumbnailTextureCount = 0;
+    [HideInInspector] public int runtimeTextureCount = 0;
+
+    private int appliesThisFrame;
+    private byte[][] thumbnailBytes;
+    private string[] detailedImageIds;
+    private byte[][] detailedImageBytes;
+    private int detailedImageParseIndex = 0;
+
+    [Header("Virtualization Settings")]
+    [SerializeField] private GameObject proximityMessage;
+    [SerializeField] private RectTransform viewport;
+    [SerializeField] private ProximityToggle proximityToggle;
+    private RectTransform[] eventItemRects;
+    private GameObject[] eventItemObjects;
+    private int eventItemCount;
+    private bool isLoaded = false;
+
     private void Start()
     {
         #if UNITY_ANDROID
@@ -159,17 +181,23 @@ public class EventTimetable : UdonSharpBehaviour
             activeTimetableApiUrl = pcTimetableApiUrl;
         #endif
 
+        previewQuad.SetActive(false);
         backGroundImage.sprite = backGroundSprite;
-        if (loadingScreen != null)
-        {
-            loadingScreen.SetActive(true);
-        }
-
         scrollRect.verticalNormalizedPosition = 1.0f;
         targetScrollPosition = 1.0f;
         returnButtonImage.color = new Color(1f, 1f, 1f, 0f);
         returnButton.SetActive(false);
         FooterText.text = "■イベントの登録はウェブサイト (https://wondernote.net/) から　■アセットのダウンロードはVCC・GitHub・BOOTHから　※詳しくは左記サイトをご覧ください";
+
+        proximityMessage.SetActive(true);
+    }
+
+    public void BeginLoad()
+    {
+        if (isLoaded) return;
+
+        isLoaded = true;
+        loadingScreen.SetActive(true);
         FetchTimetableInfo();
     }
 
@@ -196,8 +224,7 @@ public class EventTimetable : UdonSharpBehaviour
         {
             if (loadingScreen != null)
             {
-                Destroy(loadingScreen);
-                loadingScreen = null;
+                loadingScreen.SetActive(false);
             }
             backGroundImage.sprite = loadErrorSprite;
             Debug.LogError($"Error loading main timetable string from {result.Url}: {result.ErrorCode} - {result.Error}");
@@ -255,7 +282,7 @@ public class EventTimetable : UdonSharpBehaviour
             }
         }
 
-        splitProcessTime = null;
+        splitProcessTime.Stop();
         ParseJsonChunksAsync();
     }
 
@@ -291,7 +318,7 @@ public class EventTimetable : UdonSharpBehaviour
         }
 
         cachedJsonResult = CombineChunksToCachedResult(parsedChunksList);
-        jsonChunksParseProcessTime = null;
+        jsonChunksParseProcessTime.Stop();
         ParseEventJson();
     }
 
@@ -345,9 +372,14 @@ public class EventTimetable : UdonSharpBehaviour
 
         int cachedJsonResultCount = cachedJsonResult.DataList.Count;
 
+        if (thumbnailBytes == null || thumbnailBytes.Length != cachedJsonResultCount) {
+            thumbnailBytes = new byte[cachedJsonResultCount][];
+        }
+
         while (jsonParseIndex < cachedJsonResultCount)
         {
             var eventToken = cachedJsonResult.DataList[jsonParseIndex];
+            int idx = jsonParseIndex;
             jsonParseIndex++;
 
             if (eventToken.TokenType == TokenType.DataDictionary)
@@ -364,7 +396,7 @@ public class EventTimetable : UdonSharpBehaviour
                 newEventDictionary.Add("datetime", eventDictionary["datetime"]);
                 newEventDictionary.Add("thumbnail_width", new DataToken((int)eventDictionary["thumbnail_width"].Double));
                 newEventDictionary.Add("thumbnail_height", new DataToken((int)eventDictionary["thumbnail_height"].Double));
-                newEventDictionary.Add("thumbnailBase64Image", new DataToken(eventDictionary["thumbnailBase64Image"].String));
+                thumbnailBytes[idx] = Convert.FromBase64String(eventDictionary["thumbnailBase64Image"].String);
 
                 eventList.Add(new DataToken(newEventDictionary));
 
@@ -388,7 +420,7 @@ public class EventTimetable : UdonSharpBehaviour
             }
         }
 
-        jsonParseProcessTime = null;
+        jsonParseProcessTime.Stop();
         SetIsSuccess(true);
         SetIsEmpty(false);
         ContinueOnStringLoadSuccess();
@@ -416,7 +448,7 @@ public class EventTimetable : UdonSharpBehaviour
     {
         bool isJsonParsed = GetIsSuccess();
         bool hasEvents = !GetIsEmpty();
-        parseResult = null;
+        parseResult = new bool[]{ false, true };
 
         if (isJsonParsed)
         {
@@ -424,13 +456,14 @@ public class EventTimetable : UdonSharpBehaviour
                 parseErrorSprite = null;
                 noEventsSprite = null;
                 loadErrorSprite = null;
+                cachedJsonResult = default;
+                runtimeTextures = new Texture2D[MAX_RUNTIME_TEXTURES];
 
                 DisplayEventsAsync();
             } else {
                 if (loadingScreen != null)
                 {
-                    Destroy(loadingScreen);
-                    loadingScreen = null;
+                    loadingScreen.SetActive(false);
                 }
                 backGroundImage.sprite = noEventsSprite;
                 return;
@@ -438,8 +471,7 @@ public class EventTimetable : UdonSharpBehaviour
         } else {
             if (loadingScreen != null)
             {
-                Destroy(loadingScreen);
-                loadingScreen = null;
+                loadingScreen.SetActive(false);
             }
             backGroundImage.sprite = parseErrorSprite;
             return;
@@ -448,14 +480,21 @@ public class EventTimetable : UdonSharpBehaviour
 
     public void DisplayEventsAsync()
     {
+        appliesThisFrame = 0;
         eventDisplayTime.Restart();
 
         int eventListCount = eventList.Count;
 
         while (eventDisplayIndex < eventListCount)
         {
+            if (appliesThisFrame >= 1) {
+                SendCustomEventDelayedFrames(nameof(DisplayEventsAsync), 1);
+                return;
+            }
+
             DataDictionary eventData = eventList[eventDisplayIndex].DataDictionary;
             string title = eventData["title"].String;
+            int idx = eventDisplayIndex;
             eventDisplayIndex++;
 
             DateTime dateTime;
@@ -479,12 +518,24 @@ public class EventTimetable : UdonSharpBehaviour
                     int thumbnailHeight = eventData["thumbnail_height"].Int;
 
                     string base64ThumbnailImage = eventData["thumbnailBase64Image"].String;
-                    byte[] imageBytes = Convert.FromBase64String(base64ThumbnailImage);
+                    byte[] imageBytes = thumbnailBytes[idx];
 
-                    Texture2D newTexture = new Texture2D(thumbnailWidth, thumbnailHeight, textureFormat, true, false);
+                    Texture2D newTexture = new Texture2D(thumbnailWidth, thumbnailHeight, textureFormat, false, false);
                     newTexture.LoadRawTextureData(imageBytes);
-                    newTexture.Apply();
+
+                    newTexture.Apply(false, true);
+                    appliesThisFrame++;
+
                     eventItemScript.SetThumbnailImage(newTexture, true);
+
+                    if (runtimeTextureCount < MAX_RUNTIME_TEXTURES) {
+                        runtimeTextures[runtimeTextureCount++] = newTexture;
+                        thumbnailTextureCount++;
+                    } else {
+                        Destroy((UnityEngine.Object)newTexture);
+                    }
+
+                    thumbnailBytes[idx] = null;
 
                     int contentID = eventData["content_id"].Int;
                     string summary = eventData["summary"].String;
@@ -493,6 +544,7 @@ public class EventTimetable : UdonSharpBehaviour
                     int supportedModel = eventData["supported_model"].Int;
 
                     eventItemScript.SetDetails(contentID, summary, details, groupId, supportedModel, canvas, detailsPanelPrefab, detailsTextPrefab, detailsImagePrefab, videoPlayerPrefabs, linkedFieldContainerPrefab, mainPanelCanvasGroup, audioManager, this);
+                    eventItemScript.SetProximityToggle(proximityToggle);
                 }
             }
             else
@@ -510,8 +562,44 @@ public class EventTimetable : UdonSharpBehaviour
             }
         }
 
-        eventDisplayTime = null;
+        eventDisplayTime.Stop();
         StartUpdateItemHeights();
+    }
+
+    public void OnScrollValueChanged()
+    {
+        VirtualizeItems();
+    }
+
+    private void VirtualizeItems()
+    {
+        if (eventItemRects == null) return;
+
+        Rect vpRect = viewport.rect;
+
+        for (int i = 0; i < eventItemCount; i++)
+        {
+            RectTransform itemRT = eventItemRects[i];
+            GameObject go = eventItemObjects[i];
+
+            Vector3[] corners = new Vector3[4];
+            itemRT.GetWorldCorners(corners);
+
+            bool visible = false;
+            for (int c = 0; c < 4; c++)
+            {
+                Vector3 localPos = viewport.InverseTransformPoint(corners[c]);
+
+                if (localPos.x >= vpRect.xMin && localPos.x <= vpRect.xMax && localPos.y >= vpRect.yMin && localPos.y <= vpRect.yMax)
+                {
+                    visible = true;
+                    break;
+                }
+            }
+
+            if (go.activeSelf != visible)
+                go.SetActive(visible);
+        }
     }
 
     private void StartUpdateItemHeights()
@@ -640,7 +728,7 @@ public class EventTimetable : UdonSharpBehaviour
             timeItemIndex = 0;
         }
 
-        updateHeightTime = null;
+        updateHeightTime.Stop();
         dateTimeContainers.SetActive(true);
         UpdateLoadingProgress(1);
         PrepareEventDisplay();
@@ -666,17 +754,35 @@ public class EventTimetable : UdonSharpBehaviour
 
         if (loadingScreen != null && scrollViewCanvasGroup!= null)
         {
-            Destroy(loadingScreen);
-            loadingScreen = null;
+            loadingScreen.SetActive(false);
 
             scrollViewCanvasGroup.alpha = 1;
             scrollViewCanvasGroup.interactable = true;
             scrollViewCanvasGroup.blocksRaycasts = true;
         }
 
+        proximityToggle.OnLoadComplete();
         eventList.Clear();
         parsedChunksList = null;
         LoadNextDetailedImage();
+
+        CacheAllEventItemsForVirtualization();
+    }
+
+    private void CacheAllEventItemsForVirtualization()
+    {
+        var raws = dateTimeContainers.GetComponentsInChildren<RawImage>(includeInactive: true);
+        eventItemCount = raws.Length;
+        eventItemObjects = new GameObject [eventItemCount];
+        eventItemRects = new RectTransform[eventItemCount];
+
+        for (int i = 0; i < eventItemCount; i++)
+        {
+            eventItemObjects[i] = raws[i].gameObject;
+            eventItemRects  [i] = raws[i].rectTransform;
+        }
+
+        VirtualizeItems();
     }
 
     private void StartImgsJsonParsing(string jsonResponse)
@@ -763,20 +869,34 @@ public class EventTimetable : UdonSharpBehaviour
 
         if (cachedJsonResultImgs.TokenType == TokenType.DataList)
         {
-            while (imgsJsonParseIndex < cachedJsonResultImgs.DataList.Count)
+            int count = cachedJsonResultImgs.DataList.Count;
+
+            if (detailedImageIds == null || detailedImageIds.Length != count) {
+                detailedImageIds = new string[count];
+                detailedImageBytes = new byte[count][];
+                detailedImageParseIndex = 0;
+            }
+
+            while (imgsJsonParseIndex < count)
             {
                 var detailedImageToken = cachedJsonResultImgs.DataList[imgsJsonParseIndex];
+                int idx = detailedImageParseIndex;
                 imgsJsonParseIndex++;
+                detailedImageParseIndex++;
 
                 if (detailedImageToken.TokenType == TokenType.DataDictionary)
                 {
                     var detailedImageDict = detailedImageToken.DataDictionary;
+
+                    string imageId = detailedImageDict["image_id"].String;
+                    detailedImageIds[idx] = imageId;
+
                     DataDictionary newDetailedImgDictionary = new DataDictionary();
                     newDetailedImgDictionary.Add("content_id", new DataToken((int)detailedImageDict["content_id"].Double));
                     newDetailedImgDictionary.Add("image_id", detailedImageDict["image_id"]);
                     newDetailedImgDictionary.Add("width", new DataToken((int)detailedImageDict["width"].Double));
                     newDetailedImgDictionary.Add("height", new DataToken((int)detailedImageDict["height"].Double));
-                    newDetailedImgDictionary.Add("base64DetailedImage", new DataToken(detailedImageDict["base64DetailedImage"].String));
+                    detailedImageBytes[idx] = Convert.FromBase64String(detailedImageDict["base64DetailedImage"].String);
                     detailedImagesList.Add(new DataToken(newDetailedImgDictionary));
                 }
                 else
@@ -802,6 +922,18 @@ public class EventTimetable : UdonSharpBehaviour
         {
             Debug.LogError("Detailed images JSON root is not a DataList.");
         }
+    }
+
+    public byte[] GetDetailedImageBytes(string imageId)
+    {
+        for (int i = 0; i < detailedImageIds.Length; i++)
+        {
+            if (detailedImageIds[i] == imageId) {
+                return detailedImageBytes[i];
+            }
+
+        }
+        return null;
     }
 
     private GameObject GetOrCreateDateItem(DateTime dateTime)
@@ -967,10 +1099,10 @@ public class EventTimetable : UdonSharpBehaviour
             return;
         }
 
-        splitImgsProcessTime = null;
-        imgsJsonChunksParseProcessTime = null;
-        imgsJsonParseProcessTime = null;
-        activeDetailedImagesUrls = null;
+        splitImgsProcessTime.Stop();
+        imgsJsonChunksParseProcessTime.Stop();
+        imgsJsonParseProcessTime.Stop();
+        arrayContent_imgs = null;
     }
 
     public void OnClickReturnButton()
@@ -1190,5 +1322,83 @@ public class EventTimetable : UdonSharpBehaviour
         }
 
         return VRCUrl.Empty;
+    }
+
+    public void ResetTimetable()
+    {
+        if (!isLoaded) return;
+        isLoaded = false;
+
+        var panels = canvas.GetComponentsInChildren<DetailsPanelController>(true);
+        for (int i = 0; i < panels.Length; i++)
+        {
+            panels[i].CloseDetails();
+        }
+
+        for (int i = 0; i < runtimeTextureCount; i++)
+        {
+            var tex = runtimeTextures[i];
+            if (tex != null) Destroy((UnityEngine.Object)tex);
+            runtimeTextures[i] = null;
+        }
+
+        runtimeTextures = null;
+        runtimeTextureCount = 0;
+        thumbnailTextureCount = 0;
+
+        int childCnt = dateTimeContainers.transform.childCount;
+        for (int i = childCnt - 1; i >= 0; i--)
+            Destroy(dateTimeContainers.transform.GetChild(i).gameObject);
+
+        eventItemCount = 0;
+        eventItemRects = null;
+        eventItemObjects = null;
+
+        dateTimeContainersRect = null;
+        dateTimeContainersChildCount = 0;
+        currentStickyIndex = -1;
+        initialVerticalPosition = -1;
+
+        eventList = new DataList();
+        detailedImagesList = new DataList();
+
+        thumbnailBytes = null;
+        detailedImageBytes = null;
+        detailedImageIds = null;
+
+        jsonParseIndex = 0;
+        imgsJsonParseIndex = 0;
+        eventDisplayIndex = 0;
+        loadingChunkIndex = 0;
+        detailedImageParseIndex = 0;
+
+        splitStartIndex = 0;
+        jsonChunkIndex = 0;
+        parsedChunksList = new DataList();
+        jsonChunksList = new DataList();
+
+        splitStartIndex_imgs = 0;
+        imgsJsonChunkIndex = 0;
+        parsedChunksImgsList = new DataList();
+        imgsJsonChunksList = new DataList();
+
+        cachedJsonResult = default;
+        cachedJsonResultImgs = default;
+
+        backGroundImage.sprite = backGroundSprite;
+
+        scrollRect.verticalNormalizedPosition = 1.0f;
+        targetScrollPosition = 1.0f;
+        lastScrollbarValue = 1.0f;
+
+        scrollViewCanvasGroup.alpha = 0f;
+        scrollViewCanvasGroup.interactable = false;
+        scrollViewCanvasGroup.blocksRaycasts = false;
+
+        returnButton.SetActive(false);
+        returnButtonImage.color = new Color(1f,1f,1f,0f);
+
+        loadingProgressBar.value = 0f;
+        loadingProgressText.text = "0%";
     }
 }

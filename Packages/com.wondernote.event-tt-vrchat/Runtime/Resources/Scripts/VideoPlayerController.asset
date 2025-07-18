@@ -1922,7 +1922,7 @@ MonoBehaviour:
       Data: 106|System.RuntimeType, mscorlib
     - Name: 
       Entry: 1
-      Data: AudioManager, com.wondernote.event-tt-vrchat
+      Data: WonderNote.EventTimeTable.AudioManager, com.wondernote.event-tt-vrchat
     - Name: 
       Entry: 8
       Data: 

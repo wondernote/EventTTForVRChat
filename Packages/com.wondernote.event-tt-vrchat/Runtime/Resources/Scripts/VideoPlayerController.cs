@@ -8,6 +8,7 @@ using VRC.SDK3.Video.Components.Base;
 using VRC.SDK3.Components.Video;
 using TMPro;
 using UnityEngine.UI;
+using WonderNote.EventTimeTable;
 
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class VideoPlayerController : UdonSharpBehaviour

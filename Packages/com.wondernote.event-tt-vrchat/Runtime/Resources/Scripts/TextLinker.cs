@@ -43,7 +43,7 @@ public class TextLinker : UdonSharpBehaviour
             string textMeshProText_temporary = textMeshPro.text;
             textMeshPro.text = textMeshProText_temporary.Replace("h2-temporary", "h2").Replace("marker-yellow-temporary", "marker-yellow").Replace("marker-pink-temporary", "marker-pink").Replace("marker-green-temporary", "marker-green");
 
-            InitializeLinkedField();
+//             InitializeLinkedField();
         }
     }
 

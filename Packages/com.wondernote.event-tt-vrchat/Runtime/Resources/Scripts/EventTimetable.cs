@@ -64,7 +64,7 @@ public class EventTimetable : UdonSharpBehaviour
     private float currentLerpTime = 0f;
     private float lerpProgress;
     private float scrollSensitivity = 1900.0f;
-    private float thumbstickSensitivity = 27.0f;
+    private float thumbstickSensitivity = 1620f;
 
     [Header("Return Button Settings")]
     [SerializeField] private GameObject returnButton;
@@ -1138,11 +1138,12 @@ public class EventTimetable : UdonSharpBehaviour
 
                 if (Mathf.Abs(thumbstickLength) > 0f) {
                     isStickScroll = true;
-                    float tiltPixelAmount = thumbstickLength * thumbstickSensitivity;
+                    float pixelsPerSecond = thumbstickLength * thumbstickSensitivity;
+                    float delta = Time.deltaTime;
+                    float tiltPixelAmount = pixelsPerSecond * delta;
                     float tiltableHeight = scrollRect.content.rect.height - scrollRect.viewport.rect.height;
                     float tiltNormalizedAmount = tiltPixelAmount / tiltableHeight;
-                    float newScrollPosition = scrollRect.verticalNormalizedPosition + tiltNormalizedAmount;
-                    scrollRect.verticalNormalizedPosition = Mathf.Clamp(newScrollPosition, 0f, 1f);
+                    scrollRect.verticalNormalizedPosition = Mathf.Clamp01(scrollRect.verticalNormalizedPosition + tiltNormalizedAmount);
                 } else {
                     isStickScroll = false;
                 }

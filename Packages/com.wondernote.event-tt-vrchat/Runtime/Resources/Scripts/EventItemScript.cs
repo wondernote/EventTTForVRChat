@@ -15,6 +15,7 @@ public class EventItemScript : UdonSharpBehaviour
     [SerializeField] private TextMeshProUGUI dateTimeText;
     [SerializeField] private Image dateTimeTextBackground;
     [SerializeField] private RawImage thumbnailImage;
+    [SerializeField] private Button thumbnailButton;
 
     private Canvas canvas;
     private CanvasGroup mainPanelCanvasGroup;
@@ -73,6 +74,8 @@ public class EventItemScript : UdonSharpBehaviour
         if (status) {
         Rect currentRect = thumbnailImage.uvRect;
         thumbnailImage.uvRect = new Rect(currentRect.x, currentRect.y + currentRect.height, currentRect.width, -currentRect.height);
+        } else {
+            thumbnailButton.interactable = false;
         }
     }
 

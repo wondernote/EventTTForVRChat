@@ -44,7 +44,7 @@ public class DetailsPanelController : UdonSharpBehaviour
     private float currentLerpTime = 0f;
     private float lerpProgress;
     private float scrollSensitivity = 1400.0f;
-    private float thumbstickSensitivity = 22.5f;
+    private float thumbstickSensitivity = 1620f;
     private bool isPointerHoveringDetails = true;
 
     private AudioManager audioManager;
@@ -598,7 +598,8 @@ public class DetailsPanelController : UdonSharpBehaviour
 
             if (Mathf.Abs(thumbstickLength) > 0f) {
                 isStickScroll = true;
-                float tiltPixelAmount = thumbstickLength * thumbstickSensitivity;
+                float pixelsPerSecond = thumbstickLength * thumbstickSensitivity;
+                float tiltPixelAmount = pixelsPerSecond * Time.deltaTime;
                 float tiltableHeight = scrollRect.content.rect.height - scrollRect.viewport.rect.height;
                 float tiltNormalizedAmount = tiltPixelAmount / tiltableHeight;
                 float newScrollPosition = scrollRect.verticalNormalizedPosition + tiltNormalizedAmount;

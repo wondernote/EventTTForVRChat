@@ -412,6 +412,7 @@ MonoBehaviour:
   dateTimeText: {fileID: 703027635563875230}
   dateTimeTextBackground: {fileID: 4104747875270423144}
   thumbnailImage: {fileID: 7134830545368502637}
+  thumbnailButton: {fileID: 5936140410496421770}
 --- !u!114 &53483738710082414
 MonoBehaviour:
   m_ObjectHideFlags: 0

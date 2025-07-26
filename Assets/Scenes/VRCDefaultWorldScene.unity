@@ -607,8 +607,8 @@ MonoBehaviour:
   useAssignedLayers: 0
   DynamicPrefabs: []
   DynamicMaterials:
-  - {fileID: 10754, guid: 0000000000000000f000000000000000, type: 0}
   - {fileID: 2100000, guid: 2c532fc28158c544eb4d19db0cf97fd4, type: 2}
+  - {fileID: 10754, guid: 0000000000000000f000000000000000, type: 0}
   - {fileID: 2100000, guid: dc7346e4169899646bfd529be8c1bf32, type: 2}
   LightMapsNear: []
   LightMapsFar: []

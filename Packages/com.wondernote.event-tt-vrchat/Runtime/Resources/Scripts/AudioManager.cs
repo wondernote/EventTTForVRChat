@@ -11,6 +11,8 @@ namespace WonderNote.EventTimeTable
         [SerializeField] private AudioSource hoverAudioSource;
         [SerializeField] private AudioSource clickAudioSource;
         [SerializeField] private AudioSource appearanceAudioSource;
+        [SerializeField] private AudioSource wingAudioSource;
+
         private VRCPlayerApi localPlayer;
         private bool isUserInVR = false;
 
@@ -23,6 +25,7 @@ namespace WonderNote.EventTimeTable
                 hoverAudioSource.volume = 0.1f;
                 clickAudioSource.volume = 0.6f;
                 appearanceAudioSource.volume = 0.5f;
+                wingAudioSource.volume = 0.6f;
             }
         }
 
@@ -43,6 +46,11 @@ namespace WonderNote.EventTimeTable
         public void PlayAppearanceSound()
         {
             appearanceAudioSource.Play();
+        }
+
+        public void PlayWingSound()
+        {
+            wingAudioSource.Play();
         }
     }
 }

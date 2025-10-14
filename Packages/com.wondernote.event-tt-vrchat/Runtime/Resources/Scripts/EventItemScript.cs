@@ -14,6 +14,8 @@ public class EventItemScript : UdonSharpBehaviour
     [SerializeField] private TextMeshProUGUI titleText;
     [SerializeField] private TextMeshProUGUI dateTimeText;
     [SerializeField] private Image dateTimeTextBackground;
+    [SerializeField] private TextMeshProUGUI categoryLabelText;
+    [SerializeField] private Image categoryLabelTextBackground;
     [SerializeField] private RawImage thumbnailImage;
     [SerializeField] private Button thumbnailButton;
 
@@ -34,12 +36,21 @@ public class EventItemScript : UdonSharpBehaviour
     private bool isThumbnailSet = false;
     private string groupID;
     private int supportedModel;
+    private string categoryLabel;
+    private Color categoryColor;
 
     private AudioManager audioManager;
     private bool isClicked = false;
+    private int _stableIndex = -1;
 
     private EventTimetable eventTimetable;
     private ProximityToggle proximityToggle;
+
+    private bool _isMatch = true;
+    private bool _isPlaceholder = false;
+    public bool IsPlaceholder => _isPlaceholder;
+
+    private bool _visualOn = true;
 
     public void SetTitle(string _title)
     {
@@ -65,6 +76,32 @@ public class EventItemScript : UdonSharpBehaviour
         }
     }
 
+    public void SetCategory(string _categoryLabel, Color _categoryColor)
+    {
+        categoryLabel = _categoryLabel;
+        categoryLabelText.text = categoryLabel;
+        categoryLabelText.ForceMeshUpdate(true);
+
+        categoryColor = _categoryColor;
+        Color categoryColorUI = _categoryColor;
+        categoryColorUI.a = 225f / 255f;
+        categoryLabelTextBackground.color = categoryColorUI;
+
+        if (categoryLabel == "ノンジャンル") {
+            categoryLabelText.color = new Color32(50, 50, 50, 255);
+        } else {
+            categoryLabelText.color = new Color32(255, 255, 255, 255);
+        }
+    }
+
+    public void SetCategoryHidden()
+    {
+        categoryLabel = string.Empty;
+        categoryLabelText.text = categoryLabel;
+        categoryLabelText.gameObject.SetActive(false);
+        categoryLabelTextBackground.gameObject.SetActive(false);
+    }
+
     public void SetThumbnailImage(Texture2D _texture, bool status)
     {
         texture = _texture;
@@ -76,6 +113,7 @@ public class EventItemScript : UdonSharpBehaviour
         thumbnailImage.uvRect = new Rect(currentRect.x, currentRect.y + currentRect.height, currentRect.width, -currentRect.height);
         } else {
             thumbnailButton.interactable = false;
+            _isPlaceholder = true;
         }
     }
 
@@ -109,7 +147,7 @@ public class EventItemScript : UdonSharpBehaviour
                 DataList detailedImgsByContentList = eventTimetable.GetDetailedImgsByContent(contentID);
                 TextureFormat textureFormat = eventTimetable.GetTextureFormat();
 
-                detailsPanelController.SetEventDetails(title, dateTime, summary, details, texture, groupID, supportedModel, mainPanelCanvasGroup, detailsTextPrefab, detailsImagePrefab, videoPlayerPrefabs, linkedFieldContainerPrefab, audioManager, detailedImgsByContentList, textureFormat, eventTimetable);
+                detailsPanelController.SetEventDetails(title, dateTime, categoryLabel, categoryColor, summary, details, texture, groupID, supportedModel, mainPanelCanvasGroup, detailsTextPrefab, detailsImagePrefab, videoPlayerPrefabs, linkedFieldContainerPrefab, audioManager, detailedImgsByContentList, textureFormat, eventTimetable);
             }
 
             mainPanelCanvasGroup.interactable = false;
@@ -145,5 +183,56 @@ public class EventItemScript : UdonSharpBehaviour
     public void SetProximityToggle(ProximityToggle toggle)
     {
         proximityToggle = toggle;
+    }
+
+    public void ApplyMatchState(bool isMatch)
+    {
+        _isMatch = isMatch;
+    }
+
+    public void SetupAsPlaceholder(Texture2D blankLogo)
+    {
+        _isPlaceholder = true;
+        SetTitle("");
+        SetDateTime(DateTime.MinValue);
+        SetCategoryHidden();
+        SetThumbnailImage(blankLogo, false);
+    }
+
+    public void SetStableIndex(int idx)
+    {
+        _stableIndex = idx;
+    }
+
+    public int GetStableIndex()
+    {
+        return _stableIndex;
+    }
+
+    public bool IsRealAndMatch()
+    {
+        return !_isPlaceholder && _isMatch;
+    }
+
+    public void SetVisualEnabled(bool on)
+    {
+        if (on == _visualOn) return;
+        _visualOn = on;
+
+        thumbnailImage.enabled = on;
+        dateTimeTextBackground.enabled = on;
+        categoryLabelTextBackground.enabled = on;
+        titleText.enabled = on;
+        dateTimeText.enabled = on;
+        categoryLabelText.enabled = on;
+
+        thumbnailButton.interactable = on;
+
+        thumbnailImage.raycastTarget = on;
+        dateTimeTextBackground.raycastTarget = on;
+        categoryLabelTextBackground.raycastTarget = on;
+        titleText.raycastTarget = on;
+        dateTimeText.raycastTarget = on;
+        categoryLabelText.raycastTarget = on;
     }
 }

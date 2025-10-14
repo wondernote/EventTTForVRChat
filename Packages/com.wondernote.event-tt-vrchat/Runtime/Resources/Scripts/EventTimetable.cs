@@ -21,6 +21,10 @@ public class EventTimetable : UdonSharpBehaviour
     [SerializeField] private VRCUrl androidTimetableApiUrl;
     private VRCUrl activeTimetableApiUrl;
 
+    [SerializeField] private VRCUrl pcSchemaApiUrl;
+    [SerializeField] private VRCUrl androidSchemaApiUrl;
+    private VRCUrl activeSchemaApiUrl;
+
     [SerializeField] private VRCUrl[] pcDetailedImagesUrls;
     [SerializeField] private VRCUrl[] androidDetailedImagesUrls;
     private VRCUrl[] activeDetailedImagesUrls;
@@ -42,8 +46,10 @@ public class EventTimetable : UdonSharpBehaviour
     [SerializeField] private Sprite loadErrorSprite;
     [SerializeField] private Texture2D blankLogoImage;
     [SerializeField] private GameObject previewQuad;
+    [SerializeField] private GameObject reflowCurtain;
 
     [Header("Scrollbar Settings")]
+    [SerializeField] private ScrollInputHandler mainScrollHandler;
     [SerializeField] private CanvasGroup scrollViewCanvasGroup;
     [SerializeField] private ScrollRect scrollRect;
     private bool isScrollbarVisible = false;
@@ -55,16 +61,11 @@ public class EventTimetable : UdonSharpBehaviour
     private float dateTextHeightWithMargin;
     private float startPosition = 1.0f;
     private float targetScrollPosition;
-    private bool isWheelScroll = false;
-    private bool isStickScroll = false;
-    private float scrollPositionChange;
     private int currentStickyIndex = -1;
 
     private float lerpTime = 0.2f;
     private float currentLerpTime = 0f;
     private float lerpProgress;
-    private float scrollSensitivity = 1900.0f;
-    private float thumbstickSensitivity = 1620f;
 
     [Header("Return Button Settings")]
     [SerializeField] private GameObject returnButton;
@@ -107,7 +108,6 @@ public class EventTimetable : UdonSharpBehaviour
     private int gridLayoutPaddingRight = 37;
     private int gridLayoutPaddingTop = 25;
     private int gridLayoutPaddingBottom = 18;
-    private bool isPointerHoveringMain = false;
     private TextureFormat textureFormat;
 
     private const int FRAME_PROCESS_LIMIT_MS = 5;
@@ -146,7 +146,6 @@ public class EventTimetable : UdonSharpBehaviour
     private Transform dateContainersTransform;
     private Transform[] timeItemsArray;
     private float dateItemHeight;
-
     private int eventDisplayIndex = 0;
 
     private const int MAX_RUNTIME_TEXTURES = 1600;
@@ -168,6 +167,35 @@ public class EventTimetable : UdonSharpBehaviour
     private GameObject[] eventItemObjects;
     private int eventItemCount;
     private bool isLoaded = false;
+    private Vector3[] _tmpCorners = new Vector3[4];
+
+    [Header("Wing UI Settings")]
+    [SerializeField] private LeftWingController wingController;
+    [SerializeField] private GameObject wingPanel;
+    private bool _schemaReady = false;
+    private bool _eventLayoutReady = false;
+    private bool _wingShown = false;
+    private DataList schemaCategoriesList = new DataList();
+    private DataList schemaTagsList = new DataList();
+    private DataList schemaProgramsList = new DataList();
+    private int[] eventCategoryIds;
+    private int[][] eventTagIds;
+    private int[] eventProgramIds;
+    private EventItemScript[] eventItemScripts;
+    private int[] eventTypeIds;
+    private int[] eventSupportsMobile;
+
+    private bool _ticksPaused = false;
+
+    private float reflowBudgetMs = 3.5f;
+    private int _rfActiveTicket = 0;
+    private int _rfRunTicket = 0;
+    private int _rf_di = 0;
+    private int _rf_ti = 0;
+    private float _rf_dateHeight = 0f;
+    private int _rf_activeTimeCount = 0;
+    private bool _rf_hasAnyDateActive = false;
+    private System.Diagnostics.Stopwatch _rfSw = new System.Diagnostics.Stopwatch();
 
     private void Start()
     {
@@ -175,16 +203,17 @@ public class EventTimetable : UdonSharpBehaviour
             textureFormat = TextureFormat.ETC_RGB4Crunched;
             activeDetailedImagesUrls = androidDetailedImagesUrls;
             activeTimetableApiUrl = androidTimetableApiUrl;
+            activeSchemaApiUrl = androidSchemaApiUrl;
         #else
             textureFormat = TextureFormat.DXT1Crunched;
             activeDetailedImagesUrls = pcDetailedImagesUrls;
             activeTimetableApiUrl = pcTimetableApiUrl;
+            activeSchemaApiUrl = pcSchemaApiUrl;
         #endif
 
         previewQuad.SetActive(false);
         backGroundImage.sprite = backGroundSprite;
-        scrollRect.verticalNormalizedPosition = 1.0f;
-        targetScrollPosition = 1.0f;
+        SetScrollPositionImmediate(1.0f);
         returnButtonImage.color = new Color(1f, 1f, 1f, 0f);
         returnButton.SetActive(false);
         FooterText.text = "■イベントの登録はウェブサイト (https://wondernote.net/) から　■アセットのダウンロードはVCC・GitHub・BOOTHから　※詳しくは左記サイトをご覧ください";
@@ -199,6 +228,7 @@ public class EventTimetable : UdonSharpBehaviour
         isLoaded = true;
         loadingScreen.SetActive(true);
         FetchTimetableInfo();
+        FetchSchemaInfo();
     }
 
     private void FetchTimetableInfo()
@@ -206,11 +236,20 @@ public class EventTimetable : UdonSharpBehaviour
         VRCStringDownloader.LoadUrl(activeTimetableApiUrl, this.GetComponent<UdonBehaviour>());
     }
 
+    private void FetchSchemaInfo()
+    {
+        VRCStringDownloader.LoadUrl(activeSchemaApiUrl, this.GetComponent<UdonBehaviour>());
+    }
+
     public override void OnStringLoadSuccess(IVRCStringDownload download)
     {
         if (download.Url == activeTimetableApiUrl)
         {
             StartJsonParsing(download.Result);
+        }
+        else if (download.Url == activeSchemaApiUrl)
+        {
+            ParseSchema(download.Result);
         }
         else
         {
@@ -396,6 +435,19 @@ public class EventTimetable : UdonSharpBehaviour
                 newEventDictionary.Add("datetime", eventDictionary["datetime"]);
                 newEventDictionary.Add("thumbnail_width", new DataToken((int)eventDictionary["thumbnail_width"].Double));
                 newEventDictionary.Add("thumbnail_height", new DataToken((int)eventDictionary["thumbnail_height"].Double));
+
+                newEventDictionary.Add("category_label", eventDictionary["category_label"]);
+                newEventDictionary.Add("category_color", eventDictionary["category_color"]);
+                newEventDictionary.Add("category_id", new DataToken((int)eventDictionary["category_id"].Double));
+                newEventDictionary.Add("tag_ids", eventDictionary["tag_ids"]);
+                if (eventDictionary.ContainsKey("program_id") && !eventDictionary["program_id"].IsNull) {
+                    newEventDictionary.Add("program_id", new DataToken((int)eventDictionary["program_id"].Double));
+                } else {
+                    newEventDictionary.Add("program_id", new DataToken(-1));
+                }
+                newEventDictionary.Add("is_recurring", new DataToken((int)eventDictionary["is_recurring"].Double));
+                newEventDictionary.Add("supports_mobile", new DataToken((int)eventDictionary["supports_mobile"].Double));
+
                 thumbnailBytes[idx] = Convert.FromBase64String(eventDictionary["thumbnailBase64Image"].String);
 
                 eventList.Add(new DataToken(newEventDictionary));
@@ -454,7 +506,6 @@ public class EventTimetable : UdonSharpBehaviour
         {
             if (hasEvents) {
                 parseErrorSprite = null;
-                noEventsSprite = null;
                 loadErrorSprite = null;
                 cachedJsonResult = default;
                 runtimeTextures = new Texture2D[MAX_RUNTIME_TEXTURES];
@@ -485,6 +536,16 @@ public class EventTimetable : UdonSharpBehaviour
 
         int eventListCount = eventList.Count;
 
+        if (eventItemScripts == null || eventItemScripts.Length != eventListCount)
+        {
+            eventItemScripts = new EventItemScript[eventListCount];
+            eventCategoryIds = new int[eventListCount];
+            eventTagIds = new int[eventListCount][];
+            eventProgramIds = new int[eventListCount];
+            eventTypeIds = new int[eventListCount];
+            eventSupportsMobile = new int[eventListCount];
+        }
+
         while (eventDisplayIndex < eventListCount)
         {
             if (appliesThisFrame >= 1) {
@@ -494,6 +555,8 @@ public class EventTimetable : UdonSharpBehaviour
 
             DataDictionary eventData = eventList[eventDisplayIndex].DataDictionary;
             string title = eventData["title"].String;
+            string categoryLabel = eventData["category_label"].String;
+            Color categoryColor = ParseHexColor(eventData["category_color"].String);
             int idx = eventDisplayIndex;
             eventDisplayIndex++;
 
@@ -513,6 +576,7 @@ public class EventTimetable : UdonSharpBehaviour
                 {
                     eventItemScript.SetTitle(title);
                     eventItemScript.SetDateTime(dateTime);
+                    eventItemScript.SetCategory(categoryLabel, categoryColor);
 
                     int thumbnailWidth = eventData["thumbnail_width"].Int;
                     int thumbnailHeight = eventData["thumbnail_height"].Int;
@@ -526,13 +590,9 @@ public class EventTimetable : UdonSharpBehaviour
                     newTexture.Apply(false, true);
                     appliesThisFrame++;
 
-                    eventItemScript.SetThumbnailImage(newTexture, true);
-
-                    if (runtimeTextureCount < MAX_RUNTIME_TEXTURES) {
-                        runtimeTextures[runtimeTextureCount++] = newTexture;
+                    if (TryRegisterRuntimeTexture(newTexture)) {
+                        eventItemScript.SetThumbnailImage(newTexture, true);
                         thumbnailTextureCount++;
-                    } else {
-                        Destroy((UnityEngine.Object)newTexture);
                     }
 
                     thumbnailBytes[idx] = null;
@@ -545,6 +605,41 @@ public class EventTimetable : UdonSharpBehaviour
 
                     eventItemScript.SetDetails(contentID, summary, details, groupId, supportedModel, canvas, detailsPanelPrefab, detailsTextPrefab, detailsImagePrefab, videoPlayerPrefabs, linkedFieldContainerPrefab, mainPanelCanvasGroup, audioManager, this);
                     eventItemScript.SetProximityToggle(proximityToggle);
+
+                    int catId = -1;
+                    if (eventData.ContainsKey("category_id") && !eventData["category_id"].IsNull) {
+                        catId = eventData["category_id"].Int;
+                    }
+                    eventCategoryIds[idx] = catId;
+
+                    DataList tagsList = new DataList();
+                    if (eventData.ContainsKey("tag_ids") && eventData["tag_ids"].TokenType == TokenType.DataList) {
+                        tagsList = eventData["tag_ids"].DataList;
+                    }
+                    int[] tagIds = new int[tagsList.Count];
+                    for (int ti = 0; ti < tagsList.Count; ti++)
+                        tagIds[ti] = (int)tagsList[ti].Double;
+                    eventTagIds[idx] = tagIds;
+
+                    int programId = -1;
+                    if (eventData.ContainsKey("program_id") && !eventData["program_id"].IsNull) {
+                        programId = eventData["program_id"].Int;
+                    }
+                    eventProgramIds[idx] = programId;
+
+                    int isRecurring = 0;
+                    if (eventData.ContainsKey("is_recurring") && !eventData["is_recurring"].IsNull) {
+                        isRecurring = eventData["is_recurring"].Int;
+                    }
+                    eventTypeIds[idx] = (isRecurring == 1) ? 1 : 0;
+
+                    int sup = 0;
+                    if (eventData.ContainsKey("supports_mobile") && !eventData["supports_mobile"].IsNull) {
+                        sup = eventData["supports_mobile"].Int;
+                    }
+                    eventSupportsMobile[idx] = sup;
+
+                    eventItemScripts[idx] = eventItemScript;
                 }
             }
             else
@@ -566,6 +661,21 @@ public class EventTimetable : UdonSharpBehaviour
         StartUpdateItemHeights();
     }
 
+    public Color ParseHexColor(string hex)
+    {
+        if (string.IsNullOrEmpty(hex)) return Color.white;
+
+        if (hex[0] == '#') hex = hex.Substring(1);
+        if (hex.Length == 6) hex += "FF";
+        if (hex.Length != 8) return Color.white;
+
+        int r = Convert.ToInt32(hex.Substring(0, 2), 16);
+        int g = Convert.ToInt32(hex.Substring(2, 2), 16);
+        int b = Convert.ToInt32(hex.Substring(4, 2), 16);
+        int a = Convert.ToInt32(hex.Substring(6, 2), 16);
+        return new Color(r/255f, g/255f, b/255f, a/255f);
+    }
+
     public void OnScrollValueChanged()
     {
         VirtualizeItems();
@@ -573,23 +683,35 @@ public class EventTimetable : UdonSharpBehaviour
 
     private void VirtualizeItems()
     {
-        if (eventItemRects == null) return;
+        if (eventItemRects == null || eventItemObjects == null) return;
 
         Rect vpRect = viewport.rect;
 
         for (int i = 0; i < eventItemCount; i++)
         {
             RectTransform itemRT = eventItemRects[i];
-            GameObject go = eventItemObjects[i];
+            GameObject itemGO = eventItemObjects[i];
+            if (itemRT == null || itemGO == null) continue;
 
-            Vector3[] corners = new Vector3[4];
-            itemRT.GetWorldCorners(corners);
+            Transform p = itemGO.transform;
+            Transform timeItem = null;
+            while (p != null)
+            {
+                if (p.name.StartsWith("Time")) {
+                    timeItem = p; break;
+                }
+                p = p.parent;
+            }
+            if (timeItem == null || !timeItem.gameObject.activeInHierarchy) continue;
+
+            Vector3[] corners = _tmpCorners;
+            itemRT.GetLocalCorners(corners);
 
             bool visible = false;
             for (int c = 0; c < 4; c++)
             {
-                Vector3 localPos = viewport.InverseTransformPoint(corners[c]);
-
+                Vector3 world = itemRT.TransformPoint(corners[c]);
+                Vector3 localPos = viewport.InverseTransformPoint(world);
                 if (localPos.x >= vpRect.xMin && localPos.x <= vpRect.xMax && localPos.y >= vpRect.yMin && localPos.y <= vpRect.yMax)
                 {
                     visible = true;
@@ -597,8 +719,8 @@ public class EventTimetable : UdonSharpBehaviour
                 }
             }
 
-            if (go.activeSelf != visible)
-                go.SetActive(visible);
+            var script = itemGO.GetComponent<EventItemScript>();
+            if (script != null) script.SetVisualEnabled(visible);
         }
     }
 
@@ -676,21 +798,11 @@ public class EventTimetable : UdonSharpBehaviour
                 }
                 containersRect.sizeDelta = new Vector2(containersRect.sizeDelta.x, timeItemHeight);
 
+                InitializePlaceholderPool(timeContainersTransform, itemsPerRow);
+
                 int lastItemCount = childCount % itemsPerRow;
                 int numOfBlanks = (lastItemCount == 0) ? 0 : itemsPerRow - lastItemCount;
-                for (int i = 0; i < numOfBlanks; i++)
-                {
-                    GameObject eventItem = Instantiate(eventItemPrefab);
-                    eventItem.transform.SetParent(timeContainersTransform, false);
-                    EventItemScript eventItemScript = eventItem.GetComponent<EventItemScript>();
-
-                    if (eventItemScript != null)
-                    {
-                        eventItemScript.SetTitle("");
-                        eventItemScript.SetDateTime(DateTime.MinValue);
-                        eventItemScript.SetThumbnailImage(blankLogoImage, false);
-                    }
-                }
+                FillWithPlaceholders(timeContainersTransform, childCount, numOfBlanks);
 
                 RectTransform timeTextRect = timeItemTransform.Find("TimeText").GetComponent<RectTransform>();
                 float timeTextHeight = timeTextRect.sizeDelta.y;
@@ -737,6 +849,35 @@ public class EventTimetable : UdonSharpBehaviour
         timeItemsArray = null;
     }
 
+    private void InitializePlaceholderPool(Transform timeContainers, int itemsPerRow)
+    {
+        int cap = Mathf.Max(0, itemsPerRow - 1);
+        if (cap == 0) return;
+
+        for (int i = 0; i < cap; i++)
+        {
+            GameObject eventItem = Instantiate(eventItemPrefab, timeContainers);
+            EventItemScript eventItemScript = eventItem.GetComponent<EventItemScript>();
+            if (eventItemScript != null) eventItemScript.SetupAsPlaceholder(blankLogoImage);
+            eventItem.SetActive(false);
+        }
+    }
+
+    private void FillWithPlaceholders(Transform timeContainers, int realChildCount, int blanksNum)
+    {
+        int used = 0;
+        for (int c = 0; c < timeContainers.childCount && used < blanksNum; c++)
+        {
+            var child = timeContainers.GetChild(c);
+            EventItemScript eventItemScript = child.GetComponent<EventItemScript>();
+            if (eventItemScript != null && eventItemScript.IsPlaceholder) {
+                child.SetSiblingIndex(realChildCount + used);
+                child.gameObject.SetActive(true);
+                used++;
+            }
+        }
+    }
+
     private void PrepareEventDisplay()
     {
         Canvas.ForceUpdateCanvases();
@@ -750,11 +891,14 @@ public class EventTimetable : UdonSharpBehaviour
         dateTextHeightWithMargin = backgroundImageRect.sizeDelta.y - 10;
         initialVerticalPosition = GetInitialScrollPosition();
         SetInitialPosition(initialVerticalPosition);
+        mainScrollHandler.SyncToScrollPosition();
         InitializeStickyDate();
 
         if (loadingScreen != null && scrollViewCanvasGroup!= null)
         {
             loadingScreen.SetActive(false);
+            _eventLayoutReady = true;
+            TryShowWingPanel();
 
             scrollViewCanvasGroup.alpha = 1;
             scrollViewCanvasGroup.interactable = true;
@@ -766,23 +910,113 @@ public class EventTimetable : UdonSharpBehaviour
         parsedChunksList = null;
         LoadNextDetailedImage();
 
+        CaptureInitialOrderKeys();
         CacheAllEventItemsForVirtualization();
+        VirtualizeItems();
+    }
+
+    private void CaptureInitialOrderKeys()
+    {
+        Transform dateItemTransform = dateTimeContainers.transform;
+        int dateCount = dateItemTransform.childCount;
+
+        for (int di = 0; di < dateCount; di++)
+        {
+            Transform dateItem = dateItemTransform.GetChild(di);
+            Transform dateContainers = dateItem.Find("DateContainers");
+            if (dateContainers == null) continue;
+
+            int timeCount = dateContainers.childCount;
+            for (int ti = 0; ti < timeCount; ti++)
+            {
+                Transform timeItem = dateContainers.GetChild(ti);
+                if (timeItem == null) continue;
+
+                Transform timeContainers = timeItem.Find("TimeContainers");
+                if (timeContainers == null) continue;
+
+                int stable = 0;
+                int childCount = timeContainers.childCount;
+
+                for (int c = 0; c < childCount; c++)
+                {
+                    Transform child = timeContainers.GetChild(c);
+                    var eventItemScript = child.GetComponent<EventItemScript>();
+                    if (eventItemScript == null) continue;
+                    if (eventItemScript.IsPlaceholder) continue;
+
+                    eventItemScript.SetStableIndex(stable++);
+                }
+            }
+        }
     }
 
     private void CacheAllEventItemsForVirtualization()
     {
-        var raws = dateTimeContainers.GetComponentsInChildren<RawImage>(includeInactive: true);
-        eventItemCount = raws.Length;
-        eventItemObjects = new GameObject [eventItemCount];
-        eventItemRects = new RectTransform[eventItemCount];
+        var scripts = dateTimeContainers.GetComponentsInChildren<EventItemScript>(true);
 
-        for (int i = 0; i < eventItemCount; i++)
+        int n = scripts.Length;
+        eventItemCount = n;
+        eventItemObjects = new GameObject[n];
+        eventItemRects = new RectTransform[n];
+
+        for (int i = 0; i < n; i++)
         {
-            eventItemObjects[i] = raws[i].gameObject;
-            eventItemRects  [i] = raws[i].rectTransform;
+            var script = scripts[i];
+            if (script == null) continue;
+            eventItemObjects[i] = script.gameObject;
+            eventItemRects[i] = script.GetComponent<RectTransform>();
+        }
+    }
+
+    private void ParseSchema(string json)
+    {
+        if (!VRCJson.TryDeserializeFromJson(json, out DataToken root) || root.TokenType != TokenType.DataDictionary)
+        {
+            Debug.LogError("Schema JSON parse failed.");
+            return;
         }
 
-        VirtualizeItems();
+        var rootDict = root.DataDictionary;
+
+        if (rootDict.ContainsKey("categories") && rootDict["categories"].TokenType == TokenType.DataList) {
+            schemaCategoriesList = rootDict["categories"].DataList;
+        } else {
+            Debug.LogError("Schema JSON: 'categories' is missing or not a list.");
+        }
+
+        if (rootDict.ContainsKey("tags") && rootDict["tags"].TokenType == TokenType.DataList) {
+            schemaTagsList = rootDict["tags"].DataList;
+        } else {
+            Debug.LogError("Schema JSON: 'tags' is missing or not a list.");
+        }
+
+        if (rootDict.ContainsKey("programs") && rootDict["programs"].TokenType == TokenType.DataList) {
+            schemaProgramsList = rootDict["programs"].DataList;
+        } else {
+            Debug.LogError("Schema JSON: 'programs' is missing or not a list.");
+        }
+
+        wingController.SetupChipsFromSchema(schemaCategoriesList, schemaTagsList, schemaProgramsList);
+
+        schemaCategoriesList = new DataList();
+        schemaTagsList = new DataList();
+        schemaProgramsList = new DataList();
+
+        _schemaReady = true;
+
+        SendCustomEventDelayedFrames(nameof(TryShowWingPanel), 1);
+    }
+
+    public void TryShowWingPanel()
+    {
+        if (_wingShown) return;
+        if (!_schemaReady || !_eventLayoutReady) return;
+
+        wingPanel.SetActive(true);
+        _wingShown = true;
+
+        wingController.SetNeedsScrollbarFinalize();
     }
 
     private void StartImgsJsonParsing(string jsonResponse)
@@ -984,11 +1218,13 @@ public class EventTimetable : UdonSharpBehaviour
     {
         float dateTimeContainersHeight = dateTimeContainersRect.rect.height;
         float viewportHeight = scrollRect.GetComponent<RectTransform>().rect.height;
+
         if(dateTimeContainersHeight <= viewportHeight) {
-            isScrollbarVisible = false;
+            SetScrollbarVisibility(false);
+            ResetReturnButtonImmediate();
             return 1.0f;
         } else {
-            isScrollbarVisible = true;
+            SetScrollbarVisibility(true);
         }
 
         string currentDate = System.DateTime.Now.ToString("yyyyMMdd");
@@ -997,8 +1233,7 @@ public class EventTimetable : UdonSharpBehaviour
         RectTransform dateItem = FindDateItem(currentDate);
         RectTransform timeItem = FindTimeItem(dateItem, currentHour);
 
-        if (timeItem != null)
-        {
+        if (timeItem != null) {
             float timeItemPositionY = timeItem.anchoredPosition.y + timeItem.parent.GetComponent<RectTransform>().anchoredPosition.y;
             float scrollPosition = ((0 - timeItemPositionY) - dateTextHeightWithMargin) / (dateTimeContainersHeight - viewportHeight);
             return 1.0f - Mathf.Clamp(scrollPosition, 0f, 1f);
@@ -1015,7 +1250,7 @@ public class EventTimetable : UdonSharpBehaviour
             Transform child = dateItemTransform.GetChild(i);
             RectTransform childRect = child.GetComponent<RectTransform>();
 
-            if (childRect != null && child.name == dateName)
+            if (childRect != null && child.name == dateName && child.gameObject.activeInHierarchy)
             {
                 return childRect;
             }
@@ -1026,6 +1261,7 @@ public class EventTimetable : UdonSharpBehaviour
     private RectTransform FindTimeItem(RectTransform dateItem, int time)
     {
         if (dateItem == null) return null;
+        if (!dateItem.gameObject.activeInHierarchy) return null;
 
         Transform dateContainers = dateItem.Find("DateContainers");
 
@@ -1040,7 +1276,7 @@ public class EventTimetable : UdonSharpBehaviour
                 Transform child = dateContainers.GetChild(i);
                 RectTransform childRect = child.GetComponent<RectTransform>();
 
-                if (childRect != null && child.name == timeName)
+                if (childRect != null && child.name == timeName && child.gameObject.activeInHierarchy)
                 {
                     return childRect;
                 }
@@ -1112,63 +1348,38 @@ public class EventTimetable : UdonSharpBehaviour
         initialVerticalPosition = GetInitialScrollPosition();
         returnButtonClicked = true;
         startFadeOut = true;
+        mainScrollHandler.SetReturnButtonClicked(true);
     }
 
     public void OnPointerEnterMain()
     {
-        isPointerHoveringMain = true;
+        mainScrollHandler.SetPointerHover(true);
     }
     public void OnPointerExitMain()
     {
-        isPointerHoveringMain = false;
+        mainScrollHandler.SetPointerHover(false);
     }
 
     private void Update()
     {
+        if (_ticksPaused) return;
+        if (!isScrollbarVisible && !startFadeIn && !startFadeOut && !returnButtonClicked) return;
+
         if(isScrollbarVisible) {
             ReturnToInitialPosition(returnButtonClicked);
 
-            if(isPointerHoveringMain) {
-                float scrollLength = Input.GetAxis("Mouse ScrollWheel");
-                float thumbstickLength = Input.GetAxis("Oculus_CrossPlatform_SecondaryThumbstickVertical");
-
-                if (Mathf.Abs(scrollLength) > 0f) {
-                    CalculateScrollTarget(scrollLength);
-                }
-
-                if (Mathf.Abs(thumbstickLength) > 0f) {
-                    isStickScroll = true;
-                    float pixelsPerSecond = thumbstickLength * thumbstickSensitivity;
-                    float delta = Time.deltaTime;
-                    float tiltPixelAmount = pixelsPerSecond * delta;
-                    float tiltableHeight = scrollRect.content.rect.height - scrollRect.viewport.rect.height;
-                    float tiltNormalizedAmount = tiltPixelAmount / tiltableHeight;
-                    scrollRect.verticalNormalizedPosition = Mathf.Clamp01(scrollRect.verticalNormalizedPosition + tiltNormalizedAmount);
-                } else {
-                    isStickScroll = false;
-                }
-
-                if (isWheelScroll) {
-                    currentLerpTime += Time.deltaTime;
-                    if (currentLerpTime > lerpTime) {
-                        currentLerpTime = lerpTime;
-                        }
-                    lerpProgress = currentLerpTime / lerpTime;
-                    scrollRect.verticalNormalizedPosition = Mathf.Lerp(startPosition, targetScrollPosition, lerpProgress);
-
-                    if (Mathf.Abs(scrollRect.verticalNormalizedPosition - targetScrollPosition) < 0.003 || currentLerpTime == lerpTime) {
-                        isWheelScroll = false;
-                        scrollRect.verticalNormalizedPosition = targetScrollPosition;
-                    }
-                }
-            }
+            mainScrollHandler.UpdateCustomScroll();
+            bool isWheelScroll = mainScrollHandler.GetIsWheelScroll();
+            bool isStickScroll = mainScrollHandler.GetIsStickScroll();
 
             if (scrollRect.verticalNormalizedPosition != lastScrollbarValue) {
                 StickDate();
-                lastScrollbarValue = scrollRect.verticalNormalizedPosition;
+                float v = scrollRect.verticalNormalizedPosition;
+                lastScrollbarValue = v;
 
                 if(!isWheelScroll && !isStickScroll && !returnButtonClicked) {
-                    targetScrollPosition = lastScrollbarValue;
+                    SetScrollPositionImmediate(v);
+                    mainScrollHandler.SyncToScrollPosition();
                 }
             }
 
@@ -1179,34 +1390,6 @@ public class EventTimetable : UdonSharpBehaviour
                 }
             }
             FadeReturnButton(startFadeIn, startFadeOut);
-        }
-    }
-
-    private void CalculateScrollTarget(float length)
-    {
-        float scrollPixelAmount = length * scrollSensitivity;
-        float scrollableHeight = scrollRect.content.rect.height - scrollRect.viewport.rect.height;
-        float scrollNormalizedAmount = scrollPixelAmount / scrollableHeight;
-
-        if (!returnButtonClicked) {
-            if (!isWheelScroll) {
-            currentLerpTime = 0f;
-            startPosition = scrollRect.verticalNormalizedPosition;
-            isWheelScroll = true;
-            } else
-            {
-            float denominator = targetScrollPosition - startPosition + scrollPositionChange;
-            if (Mathf.Abs(denominator) < Mathf.Epsilon) {
-                isWheelScroll = false;
-                } else
-                {
-                    currentLerpTime = lerpTime * lerpProgress * ((targetScrollPosition - startPosition) / denominator);
-                }
-            }
-
-            float newTargetScrollPosition = Mathf.Clamp(targetScrollPosition + scrollNormalizedAmount, 0f, 1f);
-            scrollPositionChange = newTargetScrollPosition - targetScrollPosition;
-            targetScrollPosition = newTargetScrollPosition;
         }
     }
 
@@ -1246,6 +1429,8 @@ public class EventTimetable : UdonSharpBehaviour
                 SetInitialPosition(initialVerticalPosition);
                 StickDate();
                 returnButtonClicked = false;
+                mainScrollHandler.SetReturnButtonClicked(false);
+                mainScrollHandler.SyncToScrollPosition();
             }
         }
     }
@@ -1325,6 +1510,393 @@ public class EventTimetable : UdonSharpBehaviour
         return VRCUrl.Empty;
     }
 
+    public void ApplyFiltersById(int[] selectedCategoryIds, int[] selectedTagIds, int[] selectedProgramIds, int[] selectedTypeIds, int[] selectedDeviceIds)
+    {
+        if (eventItemScripts == null || eventItemScripts.Length == 0) return;
+
+        bool isAllCat = (selectedCategoryIds == null || selectedCategoryIds.Length == 0);
+        bool isAllTag = (selectedTagIds == null || selectedTagIds.Length == 0);
+        bool isAllProg = (selectedProgramIds == null || selectedProgramIds.Length == 0);
+        bool isAllType = (selectedTypeIds == null || selectedTypeIds.Length == 0);
+        bool isAllDev = (selectedDeviceIds == null || selectedDeviceIds.Length == 0);
+
+        int n = eventItemScripts.Length;
+
+        if (isAllCat && isAllTag && isAllProg && isAllType && isAllDev) {
+            for (int i = 0; i < n; i++)
+            {
+                if (eventItemScripts[i] != null) eventItemScripts[i].ApplyMatchState(true);
+            }
+        } else {
+            for (int i = 0; i < n; i++)
+            {
+                int catId = (eventCategoryIds != null && i < eventCategoryIds.Length) ? eventCategoryIds[i] : -1;
+                int[] myTags = (eventTagIds != null && i < eventTagIds.Length) ? eventTagIds[i] : null;
+                int progId = (eventProgramIds != null && i < eventProgramIds.Length) ? eventProgramIds[i] : -1;
+                int typeVal = (eventTypeIds != null && i < eventTypeIds.Length) ? eventTypeIds[i] : -1;
+                int supMob = (eventSupportsMobile != null && i < eventSupportsMobile.Length) ? eventSupportsMobile[i] : -1;
+
+                bool isCategoryMatch = isAllCat || (catId >= 0 && ContainsInt(selectedCategoryIds, catId));
+                bool isTagMatch = isAllTag || AnyOverlap(selectedTagIds, myTags);
+                bool isProgMatch = isAllProg || (progId >= 0 && ContainsInt(selectedProgramIds, progId));
+                bool isTypeMatch = isAllType || (typeVal >= 0 && ContainsInt(selectedTypeIds, typeVal));
+                bool isDevMatch = isAllDev || (supMob >= 0 && ContainsInt(selectedDeviceIds, supMob));
+
+                bool match = isCategoryMatch && isTagMatch && isProgMatch && isTypeMatch && isDevMatch;
+                if (eventItemScripts[i] != null) {
+                    eventItemScripts[i].ApplyMatchState(match);
+                }
+            }
+        }
+
+        StartReflowFilteredLayout();
+    }
+
+    private void StartReflowFilteredLayout()
+    {
+        _rfActiveTicket++;
+        _rfRunTicket = _rfActiveTicket;
+
+        wingController.SetFiltersBusy(true);
+        ShowCurtain();
+
+        _rf_di = 0;
+        _rf_ti = 0;
+        _rf_dateHeight = 0f;
+        _rf_activeTimeCount = 0;
+        _rf_hasAnyDateActive = false;
+
+        SendCustomEventDelayedFrames(nameof(ReflowFilteredLayout_Step), 0);
+    }
+
+    public void ReflowFilteredLayout_Step()
+    {
+        if (_rfRunTicket != _rfActiveTicket) return;
+
+        Transform dateRoot = dateTimeContainers.transform;
+        int dateCount = dateRoot.childCount;
+
+        _rfSw.Restart();
+
+        while (_rf_di < dateCount)
+        {
+            Transform dateItem = dateRoot.GetChild(_rf_di);
+            Transform dateContainers = dateItem.Find("DateContainers");
+            RectTransform dateContainersRect = dateContainers.GetComponent<RectTransform>();
+            RectTransform dateItemRect = dateItem.GetComponent<RectTransform>();
+
+            int timeCount = dateContainers.childCount;
+
+            while (_rf_ti < timeCount)
+            {
+                Transform timeItem = dateContainers.GetChild(_rf_ti);
+
+                bool timeVisible;
+                float timeItemHeight;
+                ProcessOneTimeItem(timeItem, out timeVisible, out timeItemHeight);
+
+                if (timeVisible) {
+                    _rf_dateHeight += timeItemHeight;
+                    _rf_activeTimeCount++;
+                }
+
+                _rf_ti++;
+
+                dateContainersRect.sizeDelta = new Vector2(dateContainersRect.sizeDelta.x, _rf_dateHeight);
+
+                if (_rfSw.Elapsed.TotalMilliseconds >= reflowBudgetMs) {
+                    _rfSw.Stop();
+                    SendCustomEventDelayedFrames(nameof(ReflowFilteredLayout_Step), 1);
+                    return;
+                }
+            }
+
+            if (_rf_activeTimeCount == 0) {
+                dateItem.gameObject.SetActive(false);
+            } else {
+                if (!dateItem.gameObject.activeSelf) dateItem.gameObject.SetActive(true);
+
+                RectTransform dateTextRect = dateItem.Find("DateTextBackground/BackgroundImage/DateText").GetComponent<RectTransform>();
+                float dateTextHeight = dateTextRect.sizeDelta.y;
+
+                float dateHeightTotal = _rf_dateHeight + dateTextHeight;
+                dateItemRect.sizeDelta = new Vector2(dateItemRect.sizeDelta.x, dateHeightTotal);
+
+                _rf_hasAnyDateActive = true;
+            }
+
+            _rf_di++;
+            _rf_ti = 0;
+            _rf_dateHeight = 0f;
+            _rf_activeTimeCount = 0;
+        }
+
+        _rfSw.Stop();
+        wingController.SetFiltersBusy(false);
+        HideCurtainNextFrame();
+
+        LayoutRebuilder.ForceRebuildLayoutImmediate(dateTimeContainersRect);
+
+        if (!_rf_hasAnyDateActive) {
+            backGroundImage.sprite = noEventsSprite;
+            ApplyNoContentScrollState();
+
+            eventItemCount = 0;
+            eventItemRects = null;
+            eventItemObjects = null;
+            return;
+        } else {
+            backGroundImage.sprite = backGroundSprite;
+            returnButton.SetActive(true);
+        }
+
+        SendCustomEventDelayedFrames(nameof(ResetScrollAndVirtualizeAfterLayout), 2);
+    }
+
+    private void ProcessOneTimeItem(Transform timeItem, out bool timeVisible, out float timeItemHeightOut)
+    {
+        RectTransform timeItemRect = timeItem.GetComponent<RectTransform>();
+        Transform timeContainers = timeItem.Find("TimeContainers");
+        RectTransform timeContainersRect = timeContainers.GetComponent<RectTransform>();
+        GridLayoutGroup grid = timeContainers.GetComponent<GridLayoutGroup>();
+
+        int childCount = timeContainers.childCount;
+        for (int c = 0; c < childCount; c++)
+        {
+            var child = timeContainers.GetChild(c);
+            EventItemScript eventItemScript = child.GetComponent<EventItemScript>();
+            if (eventItemScript != null && eventItemScript.IsPlaceholder) child.gameObject.SetActive(false);
+        }
+
+        Transform[] matchChildren = new Transform[childCount];
+        int[] matchKeys = new int[childCount];
+        int matchCount = 0;
+        int maxKey = -1;
+
+        for (int c = 0; c < childCount; c++)
+        {
+            var child = timeContainers.GetChild(c);
+            var eventItemScript = child.GetComponent<EventItemScript>();
+            if (eventItemScript == null || eventItemScript.IsPlaceholder) continue;
+
+            bool show = eventItemScript.IsRealAndMatch();
+            child.gameObject.SetActive(show);
+
+            if (show) {
+                int key = eventItemScript.GetStableIndex();
+                matchChildren[matchCount] = child;
+                matchKeys[matchCount] = key;
+                if (key > maxKey) maxKey = key;
+                matchCount++;
+            }
+        }
+
+        if (matchCount == 0) {
+            timeContainersRect.sizeDelta = new Vector2(timeContainersRect.sizeDelta.x, 0f);
+            timeItem.gameObject.SetActive(false);
+            timeItemRect.sizeDelta = new Vector2(timeItemRect.sizeDelta.x, 0f);
+
+            timeVisible = false;
+            timeItemHeightOut = 0f;
+            return;
+        }
+
+        if (!timeItem.gameObject.activeSelf) timeItem.gameObject.SetActive(true);
+
+        int nextIndex = 0;
+        for (int key = 0; key <= maxKey; key++)
+        {
+            for (int i = 0; i < matchCount; i++)
+            {
+                if (matchKeys[i] == key) {
+                    matchChildren[i].SetSiblingIndex(nextIndex++);
+                }
+            }
+        }
+
+        int realChildCount = matchCount;
+        float containerWidth = timeContainersRect.rect.width - gridLayoutPaddingLeft - gridLayoutPaddingRight;
+        int itemsPerRow = Mathf.Max(1, Mathf.FloorToInt((containerWidth + grid.spacing.x) / (grid.cellSize.x + grid.spacing.x)));
+
+        int lastRowCount = realChildCount % itemsPerRow;
+        int blanks = (lastRowCount == 0) ? 0 : (itemsPerRow - lastRowCount);
+        FillWithPlaceholders(timeContainers, realChildCount, blanks);
+
+        int totalCells = realChildCount + blanks;
+        int rows = (totalCells == 0) ? 0 : Mathf.CeilToInt((float)totalCells / itemsPerRow);
+
+        float timeItemHeight = 0f;
+        if (rows > 0) {
+            timeItemHeight = rows * grid.cellSize.y + (rows - 1) * grid.spacing.y + gridLayoutPaddingTop + gridLayoutPaddingBottom;
+
+            bool allTextsOneLine = true;
+            int startIdxInLastRow = Mathf.Max(0, totalCells - itemsPerRow);
+            int seenReal = 0;
+
+            for (int c = 0; c < timeContainers.childCount; c++)
+            {
+                var child = timeContainers.GetChild(c);
+                var eventItemScript = child.GetComponent<EventItemScript>();
+                if (eventItemScript == null || eventItemScript.IsPlaceholder || !child.gameObject.activeSelf) continue;
+
+                if (seenReal >= startIdxInLastRow)
+                {
+                    if (eventItemScript.GetTextLineCount() == 2) { allTextsOneLine = false; break; }
+                }
+                seenReal++;
+            }
+            if (allTextsOneLine) timeItemHeight -= 24f;
+        }
+
+        timeContainersRect.sizeDelta = new Vector2(timeContainersRect.sizeDelta.x, timeItemHeight);
+
+        RectTransform timeTextRect = timeItem.Find("TimeText").GetComponent<RectTransform>();
+        float timeTextHeight = timeTextRect.sizeDelta.y;
+        timeItemHeight += timeTextHeight;
+
+        timeItemRect.sizeDelta = new Vector2(timeItemRect.sizeDelta.x, timeItemHeight);
+
+        timeVisible = true;
+        timeItemHeightOut = timeItemHeight;
+    }
+
+    private void ShowCurtain()
+    {
+        reflowCurtain.SetActive(true);
+    }
+
+    private void HideCurtainNextFrame()
+    {
+        SendCustomEventDelayedFrames(nameof(_HideCurtainNow), 2);
+    }
+
+    public void _HideCurtainNow()
+    {
+        reflowCurtain.SetActive(false);
+    }
+
+    private bool ContainsInt(int[] arr, int value)
+    {
+        if (arr == null) return false;
+        for (int i = 0; i < arr.Length; i++)
+            if (arr[i] == value) return true;
+        return false;
+    }
+
+    private bool AnyOverlap(int[] a, int[] b)
+    {
+        if (a == null || a.Length == 0) return true;
+        if (b == null || b.Length == 0) return false;
+
+        if (a.Length > b.Length) { var tmp = a; a = b; b = tmp; }
+
+        for (int i = 0; i < a.Length; i++)
+            for (int j = 0; j < b.Length; j++)
+                if (a[i] == b[j]) return true;
+
+        return false;
+    }
+
+    private void ApplyNoContentScrollState()
+    {
+        SetScrollbarVisibility(false);
+        initialVerticalPosition = -1f;
+        ResetReturnButtonImmediate();
+
+        SetScrollPositionImmediate(1.0f);
+        mainScrollHandler.SyncToScrollPosition();
+    }
+
+    private void SetScrollbarVisibility(bool visible)
+    {
+        isScrollbarVisible = visible;
+        mainScrollHandler.SetScrollbarVisible(visible);
+    }
+
+    private void SetScrollPositionImmediate(float v)
+    {
+        scrollRect.verticalNormalizedPosition = v;
+        targetScrollPosition = v;
+        lastScrollbarValue = v;
+    }
+
+    public void ResetScrollAndVirtualizeAfterLayout()
+    {
+        float v = GetInitialScrollPosition();
+        initialVerticalPosition = v;
+        SetInitialPosition(v);
+        StickDate();
+        ResetReturnButtonImmediate();
+
+        mainScrollHandler.SyncToScrollPosition();
+
+        CacheOnlyActiveRealMatchesForVirtualization();
+        VirtualizeItems();
+    }
+
+    private void ResetReturnButtonImmediate()
+    {
+        startFadeIn  = false;
+        startFadeOut = false;
+        fadeAlpha = fadeMinAlpha;
+        returnButtonImage.color = new Color(1f, 1f, 1f, fadeAlpha);
+        returnButton.SetActive(false);
+        returnButtonClicked = false;
+    }
+
+    private void CacheOnlyActiveRealMatchesForVirtualization()
+    {
+        var scriptsAll = dateTimeContainers.GetComponentsInChildren<EventItemScript>(true);
+
+        int cap = scriptsAll.Length;
+        GameObject[] objs = new GameObject[cap];
+        RectTransform[] rts = new RectTransform[cap];
+        int k = 0;
+
+        for (int i = 0; i < scriptsAll.Length; i++)
+        {
+            var eventItemScript = scriptsAll[i];
+            if (eventItemScript == null) continue;
+
+            bool include = eventItemScript.IsRealAndMatch() || (eventItemScript.IsPlaceholder && eventItemScript.gameObject.activeSelf);
+            if (!include) continue;
+
+            objs[k] = eventItemScript.gameObject;
+            rts[k] = eventItemScript.GetComponent<RectTransform>();
+            k++;
+        }
+
+        eventItemCount = k;
+        eventItemObjects = new GameObject[k];
+        eventItemRects = new RectTransform[k];
+
+        for (int i = 0; i < k; i++)
+        {
+            eventItemObjects[i] = objs[i];
+            eventItemRects[i] = rts[i];
+        }
+    }
+
+    public bool TryRegisterRuntimeTexture(Texture2D tex)
+    {
+        if (runtimeTextureCount >= MAX_RUNTIME_TEXTURES)
+        {
+            Destroy((UnityEngine.Object)tex);
+            return false;
+        }
+        runtimeTextures[runtimeTextureCount++] = tex;
+        return true;
+    }
+
+    public void PauseAllTicksForProximity()
+    {
+        _ticksPaused = true;
+    }
+    public void ResumeAllTicksForProximity()
+    {
+        _ticksPaused = false;
+    }
+
     public void ResetTimetable()
     {
         if (!isLoaded) return;
@@ -1349,7 +1921,11 @@ public class EventTimetable : UdonSharpBehaviour
 
         int childCnt = dateTimeContainers.transform.childCount;
         for (int i = childCnt - 1; i >= 0; i--)
+        {
             Destroy(dateTimeContainers.transform.GetChild(i).gameObject);
+        }
+
+        wingController.ClearOnReset();
 
         eventItemCount = 0;
         eventItemRects = null;
@@ -1388,9 +1964,8 @@ public class EventTimetable : UdonSharpBehaviour
 
         backGroundImage.sprite = backGroundSprite;
 
-        scrollRect.verticalNormalizedPosition = 1.0f;
-        targetScrollPosition = 1.0f;
-        lastScrollbarValue = 1.0f;
+        SetScrollPositionImmediate(1.0f);
+        _ticksPaused = false;
 
         scrollViewCanvasGroup.alpha = 0f;
         scrollViewCanvasGroup.interactable = false;
@@ -1401,5 +1976,22 @@ public class EventTimetable : UdonSharpBehaviour
 
         loadingProgressBar.value = 0f;
         loadingProgressText.text = "0%";
+
+        wingPanel.SetActive(false);
+        wingController.SetClosedImmediate();
+        _schemaReady = false;
+        _eventLayoutReady = false;
+        _wingShown = false;
+
+        eventItemScripts = null;
+        eventCategoryIds = null;
+        eventTagIds = null;
+        eventProgramIds = null;
+        eventTypeIds = null;
+        eventSupportsMobile = null;
+
+        schemaCategoriesList = new DataList();
+        schemaTagsList = new DataList();
+        schemaProgramsList = new DataList();
     }
 }

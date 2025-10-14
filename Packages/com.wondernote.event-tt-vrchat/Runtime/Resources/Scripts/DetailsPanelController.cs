@@ -18,6 +18,8 @@ public class DetailsPanelController : UdonSharpBehaviour
     [SerializeField] private TextMeshProUGUI titleText;
     [SerializeField] private TextMeshProUGUI dateTimeText;
     [SerializeField] private Button groupButton;
+    [SerializeField] private TextMeshProUGUI categoryText;
+    [SerializeField] private Image categoryTextBG;
     [SerializeField] private TextMeshProUGUI summaryText;
 
     private string titleSuffix;
@@ -52,7 +54,7 @@ public class DetailsPanelController : UdonSharpBehaviour
     private TextureFormat textureFormat;
     private EventTimetable eventTimetable;
 
-    public void SetEventDetails(string _title, DateTime _dateTime, string _summary, string _details, Texture2D _texture, string _groupID, int _supportedModel, CanvasGroup _mainPanelCanvasGroup, GameObject _detailsTextPrefab, GameObject _detailsImagePrefab, GameObject[] _videoPlayerPrefabs, GameObject _linkedFieldContainerPrefab, AudioManager _audioManager, DataList _detailedImgsByContentList, TextureFormat _textureFormat, EventTimetable timetable)
+    public void SetEventDetails(string _title, DateTime _dateTime, string _categoryText, Color _categoryColor, string _summary, string _details, Texture2D _texture, string _groupID, int _supportedModel, CanvasGroup _mainPanelCanvasGroup, GameObject _detailsTextPrefab, GameObject _detailsImagePrefab, GameObject[] _videoPlayerPrefabs, GameObject _linkedFieldContainerPrefab, AudioManager _audioManager, DataList _detailedImgsByContentList, TextureFormat _textureFormat, EventTimetable timetable)
     {
         detailsThumbnailImage.texture = _texture;
 
@@ -82,6 +84,15 @@ public class DetailsPanelController : UdonSharpBehaviour
         string dayOfWeek = japaneseWeekDays[(int)_dateTime.DayOfWeek];
         dateTimeText.text = _dateTime.ToString($"M月d日({dayOfWeek}) HH:mm～");
 
+        categoryText.text = _categoryText;
+        categoryTextBG.color = _categoryColor;
+
+        if (_categoryText == "ノンジャンル") {
+            categoryText.color = new Color32(50, 50, 50, 255);
+        } else {
+            categoryText.color = new Color32(255, 255, 255, 255);
+        }
+
         summaryText.text = _summary;
         detailsTextPrefab = _detailsTextPrefab;
         detailsImagePrefab = _detailsImagePrefab;
@@ -97,6 +108,9 @@ public class DetailsPanelController : UdonSharpBehaviour
         if(string.IsNullOrEmpty(_groupID) || !_groupID.StartsWith("grp_"))
         {
             groupButton.gameObject.SetActive(false);
+
+            RectTransform rt = categoryTextBG.rectTransform;
+            rt.anchoredPosition = new Vector2(0f, rt.anchoredPosition.y);
         } else {
             groupID = _groupID;
         }
@@ -282,12 +296,14 @@ public class DetailsPanelController : UdonSharpBehaviour
                     newTexture.LoadRawTextureData(imageBytes);
                     newTexture.Apply(false, true);
 
+                    if (!eventTimetable.TryRegisterRuntimeTexture(newTexture)) {
+                        return false;
+                    }
+
                     rawImage.texture = newTexture;
 
                     Rect currentRect = rawImage.uvRect;
                     rawImage.uvRect = new Rect(currentRect.x, currentRect.y + currentRect.height, currentRect.width, -currentRect.height);
-
-                    eventTimetable.runtimeTextures[eventTimetable.runtimeTextureCount++] = newTexture;
 
                     return true;
                 }

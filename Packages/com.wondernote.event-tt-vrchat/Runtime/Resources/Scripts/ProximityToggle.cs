@@ -12,7 +12,7 @@ public class ProximityToggle : UdonSharpBehaviour
     [SerializeField] private Collider triggerCollider;
     [SerializeField] private GameObject proximityMessage;
     [SerializeField] private GameObject returnButton;
-
+    [SerializeField] private GameObject wingPanel;
     private CanvasGroup detailsPanelGroup;
     private bool initialized = false;
     private bool loadCompleted = false;
@@ -39,9 +39,11 @@ public class ProximityToggle : UdonSharpBehaviour
         if (initialized) {
             if (!loadCompleted) return;
 
+            eventTimetable.ResumeAllTicksForProximity();
             returnButton.SetActive(true);
             SetCanvasGroupVisible(scrollViewCanvasGroup, true);
             SetCanvasGroupVisible(detailsPanelGroup, true);
+            wingPanel.SetActive(true);
         } else {
             Initialize();
 
@@ -56,9 +58,11 @@ public class ProximityToggle : UdonSharpBehaviour
         if (initialized) {
             if (!loadCompleted) proximityMessage.SetActive(false);
 
+            eventTimetable.PauseAllTicksForProximity();
             returnButton.SetActive(false);
             SetCanvasGroupVisible(scrollViewCanvasGroup, false);
             SetCanvasGroupVisible(detailsPanelGroup, false);
+            wingPanel.SetActive(false);
 
             if (!cleanupScheduled) {
                 cleanupScheduled = true;

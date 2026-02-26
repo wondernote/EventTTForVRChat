@@ -62,3 +62,19 @@ crashlytics-build.properties
 Assets/PackageMakerWindowData.asset*
 .idea
 .vscode
+
+# --- PCや起動タイミングで勝手に変わるもの ---
+/UserSettings/
+
+/Assets/_LastBuild/
+/Assets/_LastBuild.meta
+
+/Assets/SerializedUdonPrograms/
+/Assets/SerializedUdonPrograms.meta
+
+/Assets/UdonSharp/PrefabBuild/
+/Assets/UdonSharp/PrefabBuild.meta
+
+# --- シーンは各自で管理 ---
+/Assets/Scenes/
+/Assets/Scenes.meta

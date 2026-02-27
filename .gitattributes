@@ -3,3 +3,4 @@
 
 # VCCが触る manifest は CRLF を正にする
 Packages/vpm-manifest.json text eol=crlf
+Packages/.gitignore        text eol=crlf

@@ -1,0 +1,5 @@
+# テキストはLFで正規化
+* text=auto eol=lf
+
+# VCCが触る manifest は CRLF を正にする
+Packages/vpm-manifest.json text eol=crlf

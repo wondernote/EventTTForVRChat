@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c333ccfdd0cbdbc4ca30cef2dd6e6b9b, type: 3}
   m_Name: LeftWingController
   m_EditorClassIdentifier: 
-  serializedUdonProgramAsset: {fileID: 11400000, guid: 184f8976107718842a6826b07f72c4e3,
+  serializedUdonProgramAsset: {fileID: 11400000, guid: 5bbcc633a47dd8b4abe13aafdb3a827e,
     type: 2}
   udonAssembly: 
   assemblyError: 

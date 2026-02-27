@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c333ccfdd0cbdbc4ca30cef2dd6e6b9b, type: 3}
   m_Name: TextLinker
   m_EditorClassIdentifier: 
-  serializedUdonProgramAsset: {fileID: 11400000, guid: 8d7268438f967834d9d6103de3b73f83,
+  serializedUdonProgramAsset: {fileID: 11400000, guid: 437239cad072edc4ba2a95bb4a043742,
     type: 2}
   udonAssembly: 
   assemblyError: 

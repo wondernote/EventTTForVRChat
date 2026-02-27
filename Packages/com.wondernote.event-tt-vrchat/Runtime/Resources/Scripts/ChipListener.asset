@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c333ccfdd0cbdbc4ca30cef2dd6e6b9b, type: 3}
   m_Name: ChipListener
   m_EditorClassIdentifier: 
-  serializedUdonProgramAsset: {fileID: 11400000, guid: 096f35379e60695458ec60b723b52d8b,
+  serializedUdonProgramAsset: {fileID: 11400000, guid: 582e33fc1d556eb4db5f63aabde4ea60,
     type: 2}
   udonAssembly: 
   assemblyError: 

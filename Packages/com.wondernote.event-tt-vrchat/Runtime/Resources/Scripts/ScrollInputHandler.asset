@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c333ccfdd0cbdbc4ca30cef2dd6e6b9b, type: 3}
   m_Name: ScrollInputHandler
   m_EditorClassIdentifier: 
-  serializedUdonProgramAsset: {fileID: 11400000, guid: 62ffb13d82a5b304984cbb8ea84fa9e5,
+  serializedUdonProgramAsset: {fileID: 11400000, guid: be5d10d70668518448fa339bfb15fc1b,
     type: 2}
   udonAssembly: 
   assemblyError: 

@@ -6,17 +6,14 @@ using UnityEngine.UI;
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FlowWrapLayout : UdonSharpBehaviour
 {
-    [SerializeField] private RectTransform panelBodyRect;
     [SerializeField] private LayoutElement layoutElement;
-    private float panelBodyWidth;
-    private float spacingX = 20f;
-    private float spacingY = 35f;
+    [SerializeField] private float spacingX = 20f;
+    [SerializeField] private float spacingY = 35f;
     private RectTransform rowRect;
     private bool _reflowOnNextEnable = true;
 
     void Start()
     {
-        panelBodyWidth = panelBodyRect.rect.width;
         rowRect = (RectTransform)transform;
     }
 
@@ -34,6 +31,11 @@ public class FlowWrapLayout : UdonSharpBehaviour
 
     public void Reflow()
     {
+        if (layoutElement == null) return;
+        if (rowRect == null) rowRect = (RectTransform)transform;
+
+        float availableWidth = rowRect.rect.width;
+
         float x = 0f;
         float y = 0f;
         float lineH = 0f;
@@ -49,7 +51,7 @@ public class FlowWrapLayout : UdonSharpBehaviour
 
             float width = LayoutUtility.GetPreferredSize(child, 0);
             float height = LayoutUtility.GetPreferredSize(child, 1);
-            bool wrap = x + width > panelBodyWidth;
+            bool wrap = x + width > availableWidth;
 
             if (wrap) {
                 x = 0f;

@@ -6,7 +6,9 @@
         "VRC.SDK3.Editor",
         "VRC.SDKBase",
         "VRC.SDKBase.Editor",
-        "Unity.TextMeshPro"
+        "Unity.TextMeshPro",
+        "com.wondernote.event-tt-vrchat",
+        "UdonSharp.Runtime"
     ],
     "includePlatforms": [
         "Editor"

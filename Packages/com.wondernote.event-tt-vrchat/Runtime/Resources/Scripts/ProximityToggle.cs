@@ -9,8 +9,7 @@ public class ProximityToggle : UdonSharpBehaviour
 {
     [SerializeField] private CanvasGroup scrollViewCanvasGroup;
     [SerializeField] private EventTimetable eventTimetable;
-    [SerializeField] private Collider triggerCollider;
-    [SerializeField] private GameObject proximityMessage;
+    [SerializeField] private SphereCollider triggerCollider;
     [SerializeField] private GameObject returnButton;
     [SerializeField] private GameObject wingPanel;
     private CanvasGroup detailsPanelGroup;
@@ -19,9 +18,13 @@ public class ProximityToggle : UdonSharpBehaviour
 
     private bool cleanupScheduled = false;
 
+    public SphereCollider TriggerCollider => triggerCollider;
+
     void Start()
     {
-        SendCustomEventDelayedFrames(nameof(EnableTriggerCollider), 10);
+        #if !UNITY_IOS
+            SendCustomEventDelayedFrames(nameof(EnableTriggerCollider), 10);
+        #endif
     }
 
     public void EnableTriggerCollider()
@@ -32,7 +35,7 @@ public class ProximityToggle : UdonSharpBehaviour
     public override void OnPlayerTriggerEnter(VRCPlayerApi player)
     {
         if (!player.isLocal) return;
-        proximityMessage.SetActive(false);
+        eventTimetable.ApplyInsideView();
 
         cleanupScheduled = false;
 
@@ -53,10 +56,10 @@ public class ProximityToggle : UdonSharpBehaviour
     public override void OnPlayerTriggerExit(VRCPlayerApi player)
     {
         if (!player.isLocal) return;
-        proximityMessage.SetActive(true);
+        eventTimetable.ApplyOutsideView();
 
         if (initialized) {
-            if (!loadCompleted) proximityMessage.SetActive(false);
+            if (!loadCompleted) eventTimetable.ApplyInsideView();
 
             eventTimetable.PauseAllTicksForProximity();
             returnButton.SetActive(false);
@@ -104,6 +107,6 @@ public class ProximityToggle : UdonSharpBehaviour
 
         initialized = false;
         loadCompleted = false;
-        proximityMessage.SetActive(true);
+        eventTimetable.ApplyOutsideView();
     }
 }

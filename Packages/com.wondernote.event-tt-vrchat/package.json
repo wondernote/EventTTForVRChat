@@ -1,9 +1,9 @@
 {
   "name": "com.wondernote.event-tt-vrchat",
   "displayName": "EventTT for VRChat",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "unity": "2022.3",
-  "description": "A timetable system for VRChat that displays the day's events in chronological order.",
+  "description": "An event calendar asset for VRChat that displays event information in chronological order.",
   "author": {
     "name": "Wonder Note",
     "email": "contact@wondernote.net",

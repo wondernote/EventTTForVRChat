@@ -16,6 +16,7 @@ public class DetailsPanelController : UdonSharpBehaviour
     [SerializeField] private Transform detailsContainer;
     [SerializeField] private RawImage detailsThumbnailImage;
     [SerializeField] private TextMeshProUGUI titleText;
+    [SerializeField] private Transform tagsContainer;
     [SerializeField] private TextMeshProUGUI dateTimeText;
     [SerializeField] private Button groupButton;
     [SerializeField] private TextMeshProUGUI categoryText;
@@ -26,6 +27,7 @@ public class DetailsPanelController : UdonSharpBehaviour
     private string groupID;
     private string[] japaneseWeekDays = new string[] { "日", "月", "火", "水", "木", "金", "土" };
 
+    private GameObject tagBadgePrefab;
     private GameObject detailsTextPrefab;
     private GameObject detailsImagePrefab;
     private GameObject[] videoPlayerPrefabs;
@@ -54,7 +56,13 @@ public class DetailsPanelController : UdonSharpBehaviour
     private TextureFormat textureFormat;
     private EventTimetable eventTimetable;
 
-    public void SetEventDetails(string _title, DateTime _dateTime, string _categoryText, Color _categoryColor, string _summary, string _details, Texture2D _texture, string _groupID, int _supportedModel, CanvasGroup _mainPanelCanvasGroup, GameObject _detailsTextPrefab, GameObject _detailsImagePrefab, GameObject[] _videoPlayerPrefabs, GameObject _linkedFieldContainerPrefab, AudioManager _audioManager, DataList _detailedImgsByContentList, TextureFormat _textureFormat, EventTimetable timetable)
+    private const int MAX_PENDING_DETAIL_IMAGES = 64;
+    private string[] pendingDetailedImageIds = new string[MAX_PENDING_DETAIL_IMAGES];
+    private RawImage[] pendingDetailedRawImages = new RawImage[MAX_PENDING_DETAIL_IMAGES];
+    private GameObject[] pendingInitialImages = new GameObject[MAX_PENDING_DETAIL_IMAGES];
+    private int pendingDetailedImageCount = 0;
+
+    public void SetEventDetails(string _title, DateTime _dateTime, string _categoryText, Color _categoryColor, string _summary, string _details, Texture2D _texture, string _groupID, int _supportedModel, string[] _tagLabels, CanvasGroup _mainPanelCanvasGroup, GameObject _tagBadgePrefab, GameObject _detailsTextPrefab, GameObject _detailsImagePrefab, GameObject[] _videoPlayerPrefabs, GameObject _linkedFieldContainerPrefab, AudioManager _audioManager, TextureFormat _textureFormat, EventTimetable timetable)
     {
         detailsThumbnailImage.texture = _texture;
 
@@ -94,15 +102,18 @@ public class DetailsPanelController : UdonSharpBehaviour
         }
 
         summaryText.text = _summary;
+        tagBadgePrefab = _tagBadgePrefab;
         detailsTextPrefab = _detailsTextPrefab;
         detailsImagePrefab = _detailsImagePrefab;
         videoPlayerPrefabs = _videoPlayerPrefabs;
         linkedFieldContainerPrefab = _linkedFieldContainerPrefab;
-        detailedImgsByContentList = _detailedImgsByContentList;
+        detailedImgsByContentList = new DataList();
+        pendingDetailedImageCount = 0;
         textureFormat = _textureFormat;
         audioManager = _audioManager;
         eventTimetable = timetable;
 
+        RebuildTagBadges(_tagLabels);
         SetDetailsContent(_details);
 
         if(string.IsNullOrEmpty(_groupID) || !_groupID.StartsWith("grp_"))
@@ -116,6 +127,59 @@ public class DetailsPanelController : UdonSharpBehaviour
         }
 
         mainPanelCanvasGroup = _mainPanelCanvasGroup;
+    }
+
+    private void RebuildTagBadges(string[] tagLabels)
+    {
+        ClearTagBadges();
+
+        bool hasAny = false;
+        if (tagLabels != null)
+        {
+            for (int i = 0; i < tagLabels.Length; i++)
+            {
+                if (!string.IsNullOrEmpty(tagLabels[i])) {
+                    hasAny = true;
+                    break;
+                }
+            }
+        }
+
+        tagsContainer.gameObject.SetActive(hasAny);
+
+        if (!hasAny) return;
+
+        for (int i = 0; i < tagLabels.Length; i++)
+        {
+            string tagLabel = tagLabels[i];
+            if (string.IsNullOrEmpty(tagLabel)) continue;
+
+            GameObject tagBadge = Instantiate(tagBadgePrefab);
+            tagBadge.transform.SetParent(tagsContainer, false);
+
+            TextMeshProUGUI tagText = tagBadge.GetComponentInChildren<TextMeshProUGUI>(true);
+            if (tagText != null) {
+                tagText.text = tagLabel;
+            }
+
+            tagBadge.SetActive(true);
+        }
+    }
+
+    private void ClearTagBadges()
+    {
+        for (int i = tagsContainer.childCount - 1; i >= 0; i--)
+        {
+            GameObject child = tagsContainer.GetChild(i).gameObject;
+
+            if (child == tagBadgePrefab)
+            {
+                child.SetActive(false);
+                continue;
+            }
+
+            Destroy(child);
+        }
     }
 
     private void SetDetailsContent(string htmlContent)
@@ -148,8 +212,6 @@ public class DetailsPanelController : UdonSharpBehaviour
 
             lastIndex = figureEnd;
         }
-
-        detailedImgsByContentList.Clear();
     }
 
     private void CreateTextPrefab(string content)
@@ -190,7 +252,7 @@ public class DetailsPanelController : UdonSharpBehaviour
 
         GameObject videoUrlBgImage = videoPlayer.transform.Find("Screen/VideoUrlBackground").gameObject;
         RawImage thumbnailRawImage = videoUrlBgImage.GetComponent<RawImage>();
-        SetDetailedImage(videoUrl, thumbnailRawImage);
+        RegisterPendingDetailedImage(videoUrl, thumbnailRawImage, null);
 
         VideoPlayerController videoPlayerController = videoPlayer.GetComponent<VideoPlayerController>();
         VRCUrl videoVRCUrl = eventTimetable.FindMatchingVRCUrl(videoUrl);
@@ -249,10 +311,7 @@ public class DetailsPanelController : UdonSharpBehaviour
 
         string imageId = ExtractingStrings(content, "data-image-id=\"", "\"");
 
-        if (SetDetailedImage(imageId, detailedRawImage))
-        {
-            Destroy(initialImage);
-        }
+        RegisterPendingDetailedImage(imageId, detailedRawImage, initialImage);
 
         detailsImage.transform.SetParent(detailsContainer, false);
 
@@ -274,6 +333,46 @@ public class DetailsPanelController : UdonSharpBehaviour
             return "";
         }
         return targetContent.Substring(startIndex, endIndex - startIndex).Trim();
+    }
+
+    private void RegisterPendingDetailedImage(string imageId, RawImage rawImage, GameObject initialImage)
+    {
+        if (string.IsNullOrEmpty(imageId) || rawImage == null) {
+            return;
+        }
+
+        if (pendingDetailedImageCount >= MAX_PENDING_DETAIL_IMAGES) {
+            Debug.LogError("Pending detailed image buffer is full.");
+            return;
+        }
+
+        pendingDetailedImageIds[pendingDetailedImageCount] = imageId;
+        pendingDetailedRawImages[pendingDetailedImageCount] = rawImage;
+        pendingInitialImages[pendingDetailedImageCount] = initialImage;
+        pendingDetailedImageCount++;
+    }
+
+    public void OnDetailedImagesLoaded()
+    {
+        detailedImgsByContentList = eventTimetable.GetCurrentDetailedImagesList();
+
+        for (int i = 0; i < pendingDetailedImageCount; i++)
+        {
+            RawImage rawImage = pendingDetailedRawImages[i];
+            if (rawImage == null) {
+                continue;
+            }
+
+            if (SetDetailedImage(pendingDetailedImageIds[i], rawImage))
+            {
+                GameObject initialImage = pendingInitialImages[i];
+                if (initialImage != null) {
+                    Destroy(initialImage);
+                }
+            }
+        }
+
+        pendingDetailedImageCount = 0;
     }
 
     private bool SetDetailedImage(string imageId, RawImage rawImage)

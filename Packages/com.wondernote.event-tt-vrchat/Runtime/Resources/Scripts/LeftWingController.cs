@@ -14,17 +14,19 @@ public class LeftWingController : UdonSharpBehaviour
     [SerializeField] private RectTransform wingPanel;
     [SerializeField] private RectTransform panelBody;
     [SerializeField] private RectTransform tabButtonRect;
+    [SerializeField] private RectTransform tabHoverAreaRect;
     [SerializeField] private Button tabUIButton;
     [SerializeField] private CanvasGroup panelCG;
     [SerializeField] private RectTransform arrowIcon;
     [SerializeField] private AudioManager audioManager;
     [SerializeField] private FlowWrapLayout catFlowWrapLayout;
     [SerializeField] private RectTransform sectionCategoryRect;
-    [SerializeField] private FlowWrapLayout tagFlowWrapLayout;
     [SerializeField] private RectTransform sectionTagRect;
     [SerializeField] private CanvasGroup mainPanelCanvasGroup;
+    [SerializeField] private GameObject outsideCloseArea;
 
     private Vector2 _iconPosClosed, _iconPosOpen;
+    private Vector2 _iconSizeBase;
     private bool _needsScrollbarFinalize = false;
 
     private float motionTime = 0.12f;
@@ -34,8 +36,8 @@ public class LeftWingController : UdonSharpBehaviour
     private float _targetX;
     private bool  _isOpen;
 
-    private float tabHoverExtra = 10f;
-    private float tabMotionTime = 0.04f;
+    private float tabHoverExtra = 54f;
+    private float tabMotionTime = 0.10f;
     private float _baseTabWidth;
     private bool  _hover;
 
@@ -48,6 +50,9 @@ public class LeftWingController : UdonSharpBehaviour
 
     [Header("Filter Chips")]
     [SerializeField] private GameObject chipItemPrefab;
+    [SerializeField] private GameObject tagChipItemPrefab;
+    [SerializeField] private GameObject tagGroupItemPrefab;
+    [SerializeField] private GameObject tagChildSectionPrefab;
     [SerializeField] private Transform catResetChipParent;
     [SerializeField] private Transform catFilterChipsParent;
     [SerializeField] private Transform tagResetChipParent;
@@ -74,6 +79,10 @@ public class LeftWingController : UdonSharpBehaviour
     private ChipListener tagResetChipListener;
     private ChipListener[] catChipListeners;
     private ChipListener[] tagChipListeners;
+    private FlowWrapLayout[] tagRowFlowWrapLayouts;
+    private TagGroupItemRefs[] tagGroupItemRefs;
+    private TagGroupAccordion[] tagGroupAccordions;
+    private DataList[] tagGroupTagIdsList;
 
     private Color32 COLOR_DEFAULT = new Color32(111, 111, 111, 255);
 
@@ -98,6 +107,36 @@ public class LeftWingController : UdonSharpBehaviour
     [SerializeField] private GameObject wingContent;
 
     private bool _filtersBusy = false;
+    private bool _tagGroupBuildReady = false;
+
+    private const int TAG_GROUP_BUILD_FRAME_LIMIT_MS = 5;
+    private const int TAG_GROUP_BUILD_START_DELAY_FRAMES = 1;
+    private System.Diagnostics.Stopwatch _tagGroupBuildSw = new System.Diagnostics.Stopwatch();
+
+    private bool _tagGroupBuildInProgress = false;
+
+    private DataList _buildTags;
+    private DataList _buildTagGroups;
+    private DataList _buildCurrentChildren;
+    private DataList _buildCurrentTagIds;
+    private DataList _buildCurrentGroupTagIds;
+
+    private int _buildParentIndex = 0;
+    private int _buildChildIndex = 0;
+    private int _buildTagIndex = 0;
+    private int _buildRowIndex = 0;
+    private int _buildChipIndex = 0;
+    private int _buildRowStartIndex = 0;
+
+    private bool _buildParentPrepared = false;
+    private bool _buildChildPrepared = false;
+
+    private TagGroupItemRefs _buildParentRefs;
+    private Transform _buildChildrenRoot;
+    private Transform _buildRowTagsRoot;
+    private FlowWrapLayout _buildRowFlowWrap;
+
+    private int _wakeTagChildrenIndex = 0;
 
     void Start()
     {
@@ -107,8 +146,12 @@ public class LeftWingController : UdonSharpBehaviour
         _closedX = -bodyWidth;
         _baseTabWidth = tabButtonRect.sizeDelta.x;
 
+        tabHoverAreaRect.anchoredPosition = new Vector2(tabButtonRect.anchoredPosition.x, tabHoverAreaRect.anchoredPosition.y);
+        tabHoverAreaRect.sizeDelta = new Vector2(_baseTabWidth + tabHoverExtra, tabHoverAreaRect.sizeDelta.y);
+
         _iconPosClosed = arrowIcon.anchoredPosition;
         _iconPosOpen = new Vector2(0f, _iconPosClosed.y);
+        _iconSizeBase = arrowIcon.sizeDelta;
 
         SetClosedImmediate();
     }
@@ -132,7 +175,11 @@ public class LeftWingController : UdonSharpBehaviour
                     panelCG.interactable = false;
                     panelCG.blocksRaycasts = false;
 
-                    if (panelBody.gameObject.activeSelf) SetWingBodyEnabled(false);
+                    if (panelBody.gameObject.activeSelf) SendCustomEventDelayedFrames(nameof(DisableWingBodyAfterClose), 1);
+                }
+                else
+                {
+                    SendCustomEventDelayedFrames(nameof(WakeTagChildrenAfterOpen), 1);
                 }
             }
         }
@@ -151,11 +198,69 @@ public class LeftWingController : UdonSharpBehaviour
             }
         }
 
+        float curIconW = arrowIcon.sizeDelta.x;
+        float targetIconW = _hover ? (_iconSizeBase.x + 15f) : _iconSizeBase.x;
+
+        if (!Mathf.Approximately(curIconW, targetIconW))
+        {
+            float dur = tabMotionTime;
+            float step = (Mathf.Abs(targetIconW - curIconW) / Mathf.Max(0.001f, dur)) * Time.deltaTime;
+            float nextIconW = Mathf.MoveTowards(curIconW, targetIconW, step);
+
+            arrowIcon.sizeDelta = new Vector2(nextIconW, nextIconW);
+        }
+
         wingScrollHandler.UpdateCustomScroll();
+    }
+
+    public void DisableWingBodyAfterClose()
+    {
+        if (_isOpen) return;
+
+        SleepClosedTagChildrenForNextOpen();
+        SetWingBodyEnabled(false);
+    }
+
+    public void WakeTagChildrenAfterOpen()
+    {
+        _wakeTagChildrenIndex = 0;
+        WakeNextTagChildrenAfterOpen();
+    }
+
+    public void WakeNextTagChildrenAfterOpen()
+    {
+        if (!_isOpen) return;
+        if (tagGroupAccordions == null) return;
+
+        while (_wakeTagChildrenIndex < tagGroupAccordions.Length)
+        {
+            TagGroupAccordion accordion = tagGroupAccordions[_wakeTagChildrenIndex];
+            _wakeTagChildrenIndex++;
+
+            if (accordion != null) {
+                accordion.WakeChildrenForPanelOpen();
+                SendCustomEventDelayedFrames(nameof(WakeNextTagChildrenAfterOpen), 1);
+                return;
+            }
+        }
+    }
+
+    private void SleepClosedTagChildrenForNextOpen()
+    {
+        if (tagGroupAccordions == null) return;
+
+        for (int i = 0; i < tagGroupAccordions.Length; i++)
+        {
+            if (tagGroupAccordions[i] != null) {
+                tagGroupAccordions[i].SleepChildrenIfClosedForPanelClose();
+            }
+        }
     }
 
     public void ToggleWing()
     {
+        if (!_tagGroupBuildReady) return;
+
         audioManager.PlayWingSound();
         _hover = false;
         if (_isOpen) CloseWing();
@@ -165,19 +270,42 @@ public class LeftWingController : UdonSharpBehaviour
     private void OpenWing()
     {
         _isOpen = true;
-        _targetX = 0f;
+
+        _targetX = wingPanel.anchoredPosition.x;
 
         ApplyOpenVisuals();
 
+    #if UNITY_ANDROID
+    SendCustomEventDelayedFrames(nameof(BeginOpenWingMotion), 2);
+    #else
+    SendCustomEventDelayedFrames(nameof(BeginOpenWingMotion), 1);
+    #endif
+    }
+
+    public void BeginOpenWingMotion()
+    {
+        if (!_isOpen) return;
+
+        _targetX = 0f;
+
         if (_needsScrollbarFinalize) {
-            _needsScrollbarFinalize = false;
-            SendCustomEventDelayedFrames(nameof(FinalizeScrollbarVisibility), 2);
+            ScheduleScrollbarFinalize();
         }
     }
 
     public void SetNeedsScrollbarFinalize()
     {
         _needsScrollbarFinalize = true;
+
+        if (_isOpen) {
+            ScheduleScrollbarFinalize();
+        }
+    }
+
+    private void ScheduleScrollbarFinalize()
+    {
+        _needsScrollbarFinalize = false;
+        SendCustomEventDelayedFrames(nameof(FinalizeScrollbarVisibility), 2);
     }
 
     private void CloseWing()
@@ -199,6 +327,15 @@ public class LeftWingController : UdonSharpBehaviour
         SetWingBodyEnabled(false);
     }
 
+    public void SetModalBackdrop(bool allow)
+    {
+        if (allow && _isOpen) {
+            outsideCloseArea.SetActive(true);
+        } else {
+            outsideCloseArea.SetActive(false);
+        }
+    }
+
     private void ApplyOpenVisuals()
     {
         SetWingBodyEnabled(true);
@@ -212,6 +349,8 @@ public class LeftWingController : UdonSharpBehaviour
 
         mainPanelCanvasGroup.interactable = false;
         mainPanelCanvasGroup.blocksRaycasts = false;
+        
+        SetModalBackdrop(true);
     }
 
     private void ApplyClosedVisuals()
@@ -228,6 +367,8 @@ public class LeftWingController : UdonSharpBehaviour
 
         mainPanelCanvasGroup.interactable = true;
         mainPanelCanvasGroup.blocksRaycasts = true;
+        
+        SetModalBackdrop(false);
     }
 
     private void UpdateTintColors(Button btn, Color32 normal, Color32 highlighted, Color32 pressed)
@@ -273,14 +414,14 @@ public class LeftWingController : UdonSharpBehaviour
         wingScrollHandler.SetPointerHover(false);
     }
 
-    public void SetupChipsFromSchema(DataList categories, DataList tags, DataList programs)
+    public void SetupChipsFromSchema(DataList categories, DataList tags, DataList tagGroups, DataList programs)
     {
         BuildResetChip(catResetChipParent, KIND_CATEGORY);
         BuildFilterChips(categories, catFilterChipsParent, KIND_CATEGORY, catFlowWrapLayout);
         SetupFixedTypeChips();
         SetupFixedDeviceChips();
-        // BuildResetChip(tagResetChipParent, KIND_TAG);
-        // BuildFilterChips(tags, tagFilterChipsParent, KIND_TAG, tagFlowWrapLayout);
+        BuildResetChip(tagResetChipParent, KIND_TAG);
+        BuildKeywordTagGroups(tags, tagGroups);
         BuildProgramBanners(programs);
     }
 
@@ -291,6 +432,10 @@ public class LeftWingController : UdonSharpBehaviour
         float wingViewportHeight = wingScrollRect.GetComponent<RectTransform>().rect.height;
         bool visible = wingContentHeight > wingViewportHeight;
         wingScrollHandler.SetScrollbarVisible(visible);
+
+        if (visible) {
+            wingScrollHandler.SyncToScrollPosition();
+        }
     }
 
     private void BuildResetChip(Transform parent, int kind)
@@ -355,6 +500,313 @@ public class LeftWingController : UdonSharpBehaviour
         }
     }
 
+    private void BuildKeywordTagGroups(DataList tags, DataList tagGroups)
+    {
+        int totalRowCount = 0;
+        int totalTagChipCount = 0;
+
+        for (int i = 0; i < tagGroups.Count; i++)
+        {
+            DataDictionary parentDict = tagGroups[i].DataDictionary;
+            DataList children = parentDict["children"].DataList;
+            totalRowCount += children.Count;
+
+            for (int j = 0; j < children.Count; j++)
+            {
+                DataDictionary childDict = children[j].DataDictionary;
+                totalTagChipCount += childDict["tag_ids"].DataList.Count;
+            }
+        }
+
+        tagRowFlowWrapLayouts = new FlowWrapLayout[totalRowCount];
+        tagChipListeners = new ChipListener[totalTagChipCount];
+        tagGroupItemRefs = new TagGroupItemRefs[tagGroups.Count];
+        tagGroupAccordions = new TagGroupAccordion[tagGroups.Count];
+        tagGroupTagIdsList = new DataList[tagGroups.Count];
+
+        ClearKeywordTagBuildState();
+
+        _buildTags = tags;
+        _buildTagGroups = tagGroups;
+    }
+
+    public void BeginTagGroupBuild()
+    {
+        if (_tagGroupBuildInProgress) return;
+        if (_buildTags == null || _buildTagGroups == null) return;
+
+        _tagGroupBuildInProgress = true;
+
+        SendCustomEventDelayedFrames(nameof(BuildKeywordTagGroupsAsync), TAG_GROUP_BUILD_START_DELAY_FRAMES);
+    }
+    
+    public void BuildKeywordTagGroupsAsync()
+    {
+        if (!_tagGroupBuildInProgress) return;
+        if (_buildTags == null || _buildTagGroups == null)
+        {
+            ClearKeywordTagBuildState();
+            return;
+        }
+
+        _tagGroupBuildSw.Restart();
+
+        while (_buildParentIndex < _buildTagGroups.Count)
+        {
+            if (!_buildParentPrepared)
+            {
+                _buildRowStartIndex = _buildRowIndex;
+                _buildCurrentGroupTagIds = new DataList();
+
+                DataDictionary parentDict = _buildTagGroups[_buildParentIndex].DataDictionary;
+                string parentLabel = parentDict["label"].String;
+                string parentSlug = parentDict["slug"].String;
+
+                GameObject parentItem = Instantiate(tagGroupItemPrefab, tagFilterChipsParent);
+                parentItem.name = "TagGroup_" + parentSlug;
+
+                _buildParentRefs = parentItem.GetComponent<TagGroupItemRefs>();
+
+                tagGroupAccordions[_buildParentIndex] = _buildParentRefs.accordion;
+                _buildParentRefs.accordion.SetWingController(this);
+                _buildParentRefs.accordion.SetIsFirstGroup(_buildParentIndex == 0);
+
+                _buildParentRefs.headerLabel.text = parentLabel;
+                _buildParentRefs.headBadge.SetActive(false);
+                _buildChildrenRoot = _buildParentRefs.childrenRoot.transform;
+
+                _buildCurrentChildren = parentDict["children"].DataList;
+                _buildChildIndex = 0;
+                _buildTagIndex = 0;
+                _buildParentPrepared = true;
+                _buildChildPrepared = false;
+
+                if (_tagGroupBuildSw.ElapsedMilliseconds > TAG_GROUP_BUILD_FRAME_LIMIT_MS)
+                {
+                    SendCustomEventDelayedFrames(nameof(BuildKeywordTagGroupsAsync), 1);
+                    return;
+                }
+            }
+
+            while (_buildChildIndex < _buildCurrentChildren.Count)
+            {
+                if (!_buildChildPrepared)
+                {
+                    DataDictionary childDict = _buildCurrentChildren[_buildChildIndex].DataDictionary;
+                    string childLabel = childDict["label"].String;
+                    string childSlug = childDict["slug"].String;
+
+                    GameObject childSection = Instantiate(tagChildSectionPrefab, _buildChildrenRoot);
+                    childSection.name = "TagChild_" + childSlug;
+
+                    TagChildSectionRefs childRefs = childSection.GetComponent<TagChildSectionRefs>();
+
+                    childRefs.childLabel.text = childLabel;
+                    _buildRowTagsRoot = childRefs.rowTagsRoot;
+                    _buildRowFlowWrap = childRefs.rowFlowWrap;
+
+                    if (_buildRowIndex < tagRowFlowWrapLayouts.Length) {
+                        tagRowFlowWrapLayouts[_buildRowIndex] = _buildRowFlowWrap;
+                        _buildRowIndex++;
+                    }
+
+                    _buildCurrentTagIds = childDict["tag_ids"].DataList;
+                    _buildTagIndex = 0;
+                    _buildChildPrepared = true;
+
+                    if (_tagGroupBuildSw.ElapsedMilliseconds > TAG_GROUP_BUILD_FRAME_LIMIT_MS)
+                    {
+                        SendCustomEventDelayedFrames(nameof(BuildKeywordTagGroupsAsync), 1);
+                        return;
+                    }
+                }
+
+                while (_buildTagIndex < _buildCurrentTagIds.Count)
+                {
+                    int tagId = (int)_buildCurrentTagIds[_buildTagIndex].Double;
+                    _buildTagIndex++;
+
+                    int tagIndex = FindTagIndexById(_buildTags, tagId);
+                    if (tagIndex < 0) continue;
+
+                    DataDictionary tagDict = _buildTags[tagIndex].DataDictionary;
+
+                    int id = (int)tagDict["id"].Double;
+                    string label = tagDict["label"].String;
+                    string slug = tagDict["slug"].String;
+
+                    _buildCurrentGroupTagIds.Add(new DataToken(id));
+
+                    GameObject chipItem = Instantiate(tagChipItemPrefab, _buildRowTagsRoot);
+                    chipItem.name = "Chip_" + slug;
+
+                    TextMeshProUGUI labelText = chipItem.GetComponentInChildren<TextMeshProUGUI>();
+                    labelText.text = label;
+
+                    ChipListener chipListener = chipItem.GetComponent<ChipListener>();
+                    chipListener.SetInitInfo(this, id, KIND_TAG, _buildRowFlowWrap, COLOR_DEFAULT);
+
+                    if (_buildChipIndex < tagChipListeners.Length) {
+                        tagChipListeners[_buildChipIndex] = chipListener;
+                        _buildChipIndex++;
+                    }
+
+                    if (_tagGroupBuildSw.ElapsedMilliseconds > TAG_GROUP_BUILD_FRAME_LIMIT_MS)
+                    {
+                        SendCustomEventDelayedFrames(nameof(BuildKeywordTagGroupsAsync), 1);
+                        return;
+                    }
+                }
+
+                _buildChildIndex++;
+                _buildChildPrepared = false;
+
+                if (_tagGroupBuildSw.ElapsedMilliseconds > TAG_GROUP_BUILD_FRAME_LIMIT_MS)
+                {
+                    SendCustomEventDelayedFrames(nameof(BuildKeywordTagGroupsAsync), 1);
+                    return;
+                }
+            }
+
+            tagGroupItemRefs[_buildParentIndex] = _buildParentRefs;
+            tagGroupTagIdsList[_buildParentIndex] = _buildCurrentGroupTagIds;
+
+            _buildParentRefs.headBadge.SetActive(false);
+            _buildParentRefs.badgeCountText.text = "0";
+
+            int rowCountForThisGroup = _buildRowIndex - _buildRowStartIndex;
+
+            FlowWrapLayout[] groupRows = new FlowWrapLayout[rowCountForThisGroup];
+            for (int k = 0; k < rowCountForThisGroup; k++)
+            {
+                groupRows[k] = tagRowFlowWrapLayouts[_buildRowStartIndex + k];
+            }
+
+            _buildParentRefs.accordion.SetRowFlowWrapLayouts(groupRows);
+            _buildParentRefs.accordion.SetOpen(false);
+
+            _buildParentIndex++;
+            _buildParentPrepared = false;
+            _buildChildPrepared = false;
+
+            if (_tagGroupBuildSw.ElapsedMilliseconds > TAG_GROUP_BUILD_FRAME_LIMIT_MS)
+            {
+                SendCustomEventDelayedFrames(nameof(BuildKeywordTagGroupsAsync), 1);
+                return;
+            }
+        }
+
+        SleepClosedTagChildrenForNextOpen();
+        _tagGroupBuildReady = true;
+        ClearKeywordTagBuildState();
+    }
+
+    private void ClearKeywordTagBuildState()
+    {
+        _tagGroupBuildInProgress = false;
+
+        _buildTags = null;
+        _buildTagGroups = null;
+        _buildCurrentChildren = null;
+        _buildCurrentTagIds = null;
+        _buildCurrentGroupTagIds = null;
+
+        _buildParentIndex = 0;
+        _buildChildIndex = 0;
+        _buildTagIndex = 0;
+        _buildRowIndex = 0;
+        _buildChipIndex = 0;
+        _buildRowStartIndex = 0;
+
+        _buildParentPrepared = false;
+        _buildChildPrepared = false;
+
+        _buildParentRefs = null;
+        _buildChildrenRoot = null;
+        _buildRowTagsRoot = null;
+        _buildRowFlowWrap = null;
+
+        _tagGroupBuildSw.Reset();
+    }
+
+    private int FindTagIndexById(DataList tags, int tagId)
+    {
+        for (int i = 0; i < tags.Count; i++)
+        {
+            DataDictionary dict = tags[i].DataDictionary;
+            if ((int)dict["id"].Double == tagId) {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private void RefreshTagGroupBadges()
+    {
+        if (tagGroupItemRefs == null || tagGroupTagIdsList == null) return;
+
+        for (int i = 0; i < tagGroupItemRefs.Length; i++)
+        {
+            TagGroupItemRefs refs = tagGroupItemRefs[i];
+            DataList groupTagIds = tagGroupTagIdsList[i];
+
+            if (refs == null || groupTagIds == null) continue;
+
+            int selectedCount = CountSelectedTagsInGroup(groupTagIds);
+
+            refs.headBadge.SetActive(selectedCount > 0);
+            refs.badgeCountText.text = selectedCount.ToString();
+        }
+    }
+
+    private int CountSelectedTagsInGroup(DataList groupTagIds)
+    {
+        int count = 0;
+        
+        for (int i = 0; i < groupTagIds.Count; i++)
+        {
+            int groupTagId = (int)groupTagIds[i].Double;
+
+            for (int j = 0; j < selectedTagIds.Count; j++)
+            {
+                if ((int)selectedTagIds[j].Double == groupTagId) {
+                    count++;
+                    break;
+                }
+            }
+        }
+
+        return count;
+    }
+
+    private void RefreshTagAccordionHeights()
+    {
+        if (tagGroupAccordions == null) return;
+
+        for (int i = 0; i < tagGroupAccordions.Length; i++)
+        {
+            if (tagGroupAccordions[i] != null) {
+                tagGroupAccordions[i].RefreshHeightAfterChipStateChanged();
+            }
+        }
+
+        LayoutRebuilder.ForceRebuildLayoutImmediate(sectionTagRect);
+        SetNeedsScrollbarFinalize();
+    }
+
+    public void CloseOtherTagAccordions(TagGroupAccordion current)
+    {
+        if (tagGroupAccordions == null) return;
+
+        for (int i = 0; i < tagGroupAccordions.Length; i++)
+        {
+            TagGroupAccordion accordion = tagGroupAccordions[i];
+            if (accordion == current) continue;
+            accordion.SetOpen(false);
+        }
+    }
+
     private void SetupFixedTypeChips()
     {
         typeResetChip.SetInitInfo(this, ID_RESET, KIND_TYPE, null, COLOR_DEFAULT);
@@ -405,11 +857,10 @@ public class LeftWingController : UdonSharpBehaviour
             int bannerWidth = (int)programDict["banner_width"].Double;
             int bannerHeight = (int)programDict["banner_height"].Double;
 
-            if (!programDict["banner_base64"].IsNull) {
-                string b64 = programDict["banner_base64"].String;
-                if (!string.IsNullOrEmpty(b64)) {
-                    byte[] bytes = Convert.FromBase64String(b64);
-
+            if (!programDict["banner_index"].IsNull) {
+                int bannerIndex = (int)programDict["banner_index"].Double;
+                byte[] bytes = timetable.GetThumbnailBytesFromWnpk(bannerIndex);
+                if (bytes != null) {
                     Texture2D newTexture = new Texture2D(bannerWidth, bannerHeight, textureFormat, false, false);
                     newTexture.LoadRawTextureData(bytes);
 
@@ -445,11 +896,22 @@ public class LeftWingController : UdonSharpBehaviour
                 selectedTagIds.Clear();
 
                 for (int i = 0; i < tagChipListeners.Length; i++) {
-                    tagChipListeners[i].SetOnWithoutNotify(false);
+                    if (tagChipListeners[i] != null) {
+                        tagChipListeners[i].SetOnWithoutNotify(false);
+                    }
                 }
 
-                LayoutRebuilder.ForceRebuildLayoutImmediate(sectionTagRect);
-                tagFlowWrapLayout.Reflow();
+                if (tagRowFlowWrapLayouts != null) {
+                    for (int i = 0; i < tagRowFlowWrapLayouts.Length; i++) {
+                        if (tagRowFlowWrapLayouts[i] != null) {
+                            LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)tagRowFlowWrapLayouts[i].transform);
+                            tagRowFlowWrapLayouts[i].Reflow();
+                        }
+                    }
+                }
+
+                RefreshTagGroupBadges();
+                RefreshTagAccordionHeights();
             } else if (kind == KIND_TYPE) {
                     selectedTypeIds.Clear();
 
@@ -502,6 +964,9 @@ public class LeftWingController : UdonSharpBehaviour
             } else {
                 if (selectedTagIds.Count == 0) tagResetChipListener.SetOnWithoutNotify(true);
             }
+
+            RefreshTagGroupBadges();
+            RefreshTagAccordionHeights();
         } else if (kind == KIND_TYPE) {
             if (on) {
                 if (typeResetChip.GetToggleState()) {
@@ -574,6 +1039,8 @@ public class LeftWingController : UdonSharpBehaviour
         ClearFilterChips();
         ClearProgramBanners();
 
+        _tagGroupBuildReady = false;
+
         selectedCatIds = new DataList();
         selectedTagIds = new DataList();
         selectedProgIds = new DataList();
@@ -587,7 +1054,6 @@ public class LeftWingController : UdonSharpBehaviour
         deviceQuestChip.SetOnWithoutNotify(false);
 
         catFlowWrapLayout.ArmReflowOnNextEnable();
-        tagFlowWrapLayout.ArmReflowOnNextEnable();
 
         wingScrollRect.verticalNormalizedPosition = 1f;
         wingScrollHandler.SyncToScrollPosition();
@@ -595,6 +1061,8 @@ public class LeftWingController : UdonSharpBehaviour
 
     private void ClearFilterChips()
     {
+        ClearKeywordTagBuildState();
+
         DestroyChildren(catResetChipParent);
         DestroyChildren(catFilterChipsParent);
         DestroyChildren(tagResetChipParent);
@@ -604,6 +1072,10 @@ public class LeftWingController : UdonSharpBehaviour
         tagResetChipListener = null;
         catChipListeners = null;
         tagChipListeners = null;
+        tagRowFlowWrapLayouts = null;
+        tagGroupItemRefs = null;
+        tagGroupAccordions = null;
+        tagGroupTagIdsList = null;
     }
 
     private static void DestroyChildren(Transform parent)
@@ -637,5 +1109,11 @@ public class LeftWingController : UdonSharpBehaviour
         if (_filtersBusy == busy) return;
         _filtersBusy = busy;
         panelCG.blocksRaycasts = !busy;
+    }
+
+    public void OnOutsideCloseAreaClicked()
+    {
+        if (!_isOpen) return;
+        ToggleWing();
     }
 }

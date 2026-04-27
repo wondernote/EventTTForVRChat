@@ -1,0 +1,1404 @@
+{
+    "version": "20260406001318",
+    "rootGroups": [
+        {
+            "id": 1,
+            "label": "業態",
+            "sortOrder": 10,
+            "children": [
+                {
+                    "id": 2,
+                    "label": "店舗系",
+                    "sortOrder": 10,
+                    "tags": [
+                        {
+                            "id": 1,
+                            "label": "カフェ",
+                            "sortOrder": 10
+                        },
+                        {
+                            "id": 2,
+                            "label": "バー",
+                            "sortOrder": 20
+                        },
+                        {
+                            "id": 3,
+                            "label": "居酒屋",
+                            "sortOrder": 30
+                        },
+                        {
+                            "id": 4,
+                            "label": "クラブ",
+                            "sortOrder": 40
+                        },
+                        {
+                            "id": 5,
+                            "label": "ラウンジ",
+                            "sortOrder": 50
+                        },
+                        {
+                            "id": 6,
+                            "label": "ホスト",
+                            "sortOrder": 60
+                        },
+                        {
+                            "id": 7,
+                            "label": "キャバクラ",
+                            "sortOrder": 70
+                        },
+                        {
+                            "id": 8,
+                            "label": "スナック",
+                            "sortOrder": 80
+                        },
+                        {
+                            "id": 9,
+                            "label": "食事処",
+                            "sortOrder": 90
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": 3,
+            "label": "内容",
+            "sortOrder": 20,
+            "children": [
+                {
+                    "id": 4,
+                    "label": "ステージ系",
+                    "sortOrder": 10,
+                    "tags": [
+                        {
+                            "id": 10,
+                            "label": "DJ",
+                            "sortOrder": 10
+                        },
+                        {
+                            "id": 11,
+                            "label": "ライブ",
+                            "sortOrder": 20
+                        },
+                        {
+                            "id": 12,
+                            "label": "演奏",
+                            "sortOrder": 30
+                        },
+                        {
+                            "id": 13,
+                            "label": "演劇",
+                            "sortOrder": 40
+                        },
+                        {
+                            "id": 14,
+                            "label": "大喜利",
+                            "sortOrder": 50
+                        },
+                        {
+                            "id": 15,
+                            "label": "漫才・コント",
+                            "sortOrder": 60
+                        },
+                        {
+                            "id": 16,
+                            "label": "落語・漫談",
+                            "sortOrder": 70
+                        },
+                        {
+                            "id": 17,
+                            "label": "朗読",
+                            "sortOrder": 80
+                        },
+                        {
+                            "id": 18,
+                            "label": "ダンス",
+                            "sortOrder": 90
+                        },
+                        {
+                            "id": 19,
+                            "label": "演舞・剣舞",
+                            "sortOrder": 100
+                        },
+                        {
+                            "id": 20,
+                            "label": "パーティクル",
+                            "sortOrder": 110
+                        },
+                        {
+                            "id": 21,
+                            "label": "オープンマイク",
+                            "sortOrder": 120
+                        }
+                    ]
+                },
+                {
+                    "id": 5,
+                    "label": "交流系",
+                    "sortOrder": 20,
+                    "tags": [
+                        {
+                            "id": 22,
+                            "label": "雑談・お話",
+                            "sortOrder": 10
+                        },
+                        {
+                            "id": 23,
+                            "label": "相談",
+                            "sortOrder": 20
+                        },
+                        {
+                            "id": 24,
+                            "label": "ワールド巡り",
+                            "sortOrder": 30
+                        },
+                        {
+                            "id": 25,
+                            "label": "フレンド作り",
+                            "sortOrder": 40
+                        },
+                        {
+                            "id": 26,
+                            "label": "マッチング",
+                            "sortOrder": 50
+                        },
+                        {
+                            "id": 27,
+                            "label": "待ち合い",
+                            "sortOrder": 60
+                        },
+                        {
+                            "id": 28,
+                            "label": "飲み会",
+                            "sortOrder": 70
+                        }
+                    ]
+                },
+                {
+                    "id": 6,
+                    "label": "集会系",
+                    "sortOrder": 30,
+                    "tags": [
+                        {
+                            "id": 29,
+                            "label": "アバター集会",
+                            "sortOrder": 10
+                        },
+                        {
+                            "id": 30,
+                            "label": "地方集会",
+                            "sortOrder": 20
+                        },
+                        {
+                            "id": 31,
+                            "label": "同期会",
+                            "sortOrder": 30
+                        },
+                        {
+                            "id": 32,
+                            "label": "集会全般",
+                            "sortOrder": 40
+                        }
+                    ]
+                },
+                {
+                    "id": 7,
+                    "label": "創作系",
+                    "sortOrder": 40,
+                    "tags": [
+                        {
+                            "id": 33,
+                            "label": "撮影",
+                            "sortOrder": 10
+                        },
+                        {
+                            "id": 34,
+                            "label": "お絵かき",
+                            "sortOrder": 20
+                        },
+                        {
+                            "id": 35,
+                            "label": "クラフト",
+                            "sortOrder": 30
+                        },
+                        {
+                            "id": 36,
+                            "label": "作業",
+                            "sortOrder": 40
+                        }
+                    ]
+                },
+                {
+                    "id": 8,
+                    "label": "RP系",
+                    "sortOrder": 50,
+                    "tags": [
+                        {
+                            "id": 37,
+                            "label": "RP",
+                            "sortOrder": 10
+                        }
+                    ]
+                },
+                {
+                    "id": 9,
+                    "label": "鑑賞系",
+                    "sortOrder": 60,
+                    "tags": [
+                        {
+                            "id": 38,
+                            "label": "視聴・鑑賞",
+                            "sortOrder": 10
+                        },
+                        {
+                            "id": 39,
+                            "label": "観戦",
+                            "sortOrder": 20
+                        },
+                        {
+                            "id": 40,
+                            "label": "公開収録",
+                            "sortOrder": 30
+                        }
+                    ]
+                },
+                {
+                    "id": 10,
+                    "label": "展示系",
+                    "sortOrder": 70,
+                    "tags": [
+                        {
+                            "id": 41,
+                            "label": "展示会",
+                            "sortOrder": 10
+                        },
+                        {
+                            "id": 42,
+                            "label": "即売会",
+                            "sortOrder": 20
+                        },
+                        {
+                            "id": 43,
+                            "label": "試着会",
+                            "sortOrder": 30
+                        }
+                    ]
+                },
+                {
+                    "id": 11,
+                    "label": "癒やし系",
+                    "sortOrder": 80,
+                    "tags": [
+                        {
+                            "id": 44,
+                            "label": "なでなで",
+                            "sortOrder": 10
+                        },
+                        {
+                            "id": 45,
+                            "label": "ASMR",
+                            "sortOrder": 20
+                        },
+                        {
+                            "id": 46,
+                            "label": "V睡",
+                            "sortOrder": 30
+                        },
+                        {
+                            "id": 47,
+                            "label": "V感開発",
+                            "sortOrder": 40
+                        },
+                        {
+                            "id": 48,
+                            "label": "膝枕",
+                            "sortOrder": 50
+                        },
+                        {
+                            "id": 49,
+                            "label": "イチャイチャ",
+                            "sortOrder": 60
+                        }
+                    ]
+                },
+                {
+                    "id": 12,
+                    "label": "遊び系",
+                    "sortOrder": 90,
+                    "tags": [
+                        {
+                            "id": 50,
+                            "label": "ボードゲーム",
+                            "sortOrder": 10
+                        },
+                        {
+                            "id": 51,
+                            "label": "カードゲーム",
+                            "sortOrder": 20
+                        },
+                        {
+                            "id": 52,
+                            "label": "クイズ・謎解き",
+                            "sortOrder": 30
+                        },
+                        {
+                            "id": 53,
+                            "label": "カジノ",
+                            "sortOrder": 40
+                        },
+                        {
+                            "id": 54,
+                            "label": "ポーカー",
+                            "sortOrder": 50
+                        },
+                        {
+                            "id": 55,
+                            "label": "麻雀",
+                            "sortOrder": 60
+                        },
+                        {
+                            "id": 56,
+                            "label": "将棋・囲碁",
+                            "sortOrder": 70
+                        },
+                        {
+                            "id": 57,
+                            "label": "チェス",
+                            "sortOrder": 80
+                        },
+                        {
+                            "id": 58,
+                            "label": "TRPG",
+                            "sortOrder": 90
+                        },
+                        {
+                            "id": 59,
+                            "label": "人狼",
+                            "sortOrder": 100
+                        },
+                        {
+                            "id": 60,
+                            "label": "ビリヤード",
+                            "sortOrder": 110
+                        },
+                        {
+                            "id": 61,
+                            "label": "ダーツ",
+                            "sortOrder": 120
+                        },
+                        {
+                            "id": 62,
+                            "label": "シューティング",
+                            "sortOrder": 130
+                        }
+                    ]
+                },
+                {
+                    "id": 13,
+                    "label": "運動系",
+                    "sortOrder": 100,
+                    "tags": [
+                        {
+                            "id": 63,
+                            "label": "体操",
+                            "sortOrder": 10
+                        },
+                        {
+                            "id": 64,
+                            "label": "筋トレ",
+                            "sortOrder": 20
+                        },
+                        {
+                            "id": 65,
+                            "label": "フライト",
+                            "sortOrder": 30
+                        },
+                        {
+                            "id": 66,
+                            "label": "ボクシング",
+                            "sortOrder": 40
+                        },
+                        {
+                            "id": 67,
+                            "label": "武道・武術",
+                            "sortOrder": 50
+                        },
+                        {
+                            "id": 68,
+                            "label": "レース",
+                            "sortOrder": 60
+                        },
+                        {
+                            "id": 69,
+                            "label": "球技",
+                            "sortOrder": 70
+                        }
+                    ]
+                },
+                {
+                    "id": 14,
+                    "label": "学び系",
+                    "sortOrder": 110,
+                    "tags": [
+                        {
+                            "id": 70,
+                            "label": "授業・講義",
+                            "sortOrder": 10
+                        },
+                        {
+                            "id": 71,
+                            "label": "発表・LT",
+                            "sortOrder": 20
+                        },
+                        {
+                            "id": 72,
+                            "label": "講演会",
+                            "sortOrder": 30
+                        },
+                        {
+                            "id": 73,
+                            "label": "案内・紹介",
+                            "sortOrder": 40
+                        },
+                        {
+                            "id": 74,
+                            "label": "体験会",
+                            "sortOrder": 50
+                        },
+                        {
+                            "id": 75,
+                            "label": "練習会",
+                            "sortOrder": 60
+                        },
+                        {
+                            "id": 76,
+                            "label": "説明会",
+                            "sortOrder": 70
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": 15,
+            "label": "テーマ",
+            "sortOrder": 30,
+            "children": [
+                {
+                    "id": 16,
+                    "label": "ライフスタイル",
+                    "sortOrder": 10,
+                    "tags": [
+                        {
+                            "id": 77,
+                            "label": "食べ物",
+                            "sortOrder": 10
+                        },
+                        {
+                            "id": 78,
+                            "label": "飲み物",
+                            "sortOrder": 20
+                        },
+                        {
+                            "id": 79,
+                            "label": "お酒",
+                            "sortOrder": 30
+                        },
+                        {
+                            "id": 80,
+                            "label": "恋愛",
+                            "sortOrder": 40
+                        },
+                        {
+                            "id": 81,
+                            "label": "お砂糖",
+                            "sortOrder": 50
+                        },
+                        {
+                            "id": 82,
+                            "label": "ファッション",
+                            "sortOrder": 60
+                        },
+                        {
+                            "id": 83,
+                            "label": "美容・健康",
+                            "sortOrder": 70
+                        },
+                        {
+                            "id": 84,
+                            "label": "精神・医療",
+                            "sortOrder": 80
+                        },
+                        {
+                            "id": 85,
+                            "label": "地域",
+                            "sortOrder": 90
+                        },
+                        {
+                            "id": 86,
+                            "label": "LGBTQIA+",
+                            "sortOrder": 100
+                        },
+                        {
+                            "id": 87,
+                            "label": "占い",
+                            "sortOrder": 110
+                        }
+                    ]
+                },
+                {
+                    "id": 17,
+                    "label": "興味・関心",
+                    "sortOrder": 20,
+                    "tags": [
+                        {
+                            "id": 88,
+                            "label": "キャンプ・アウトドア",
+                            "sortOrder": 10
+                        },
+                        {
+                            "id": 89,
+                            "label": "旅",
+                            "sortOrder": 20
+                        },
+                        {
+                            "id": 90,
+                            "label": "カメラ",
+                            "sortOrder": 30
+                        },
+                        {
+                            "id": 91,
+                            "label": "宇宙・星空",
+                            "sortOrder": 40
+                        },
+                        {
+                            "id": 92,
+                            "label": "生き物",
+                            "sortOrder": 50
+                        },
+                        {
+                            "id": 93,
+                            "label": "ミリタリー",
+                            "sortOrder": 60
+                        },
+                        {
+                            "id": 94,
+                            "label": "たばこ・シーシャ",
+                            "sortOrder": 70
+                        },
+                        {
+                            "id": 95,
+                            "label": "航空",
+                            "sortOrder": 80
+                        },
+                        {
+                            "id": 96,
+                            "label": "鉄道",
+                            "sortOrder": 90
+                        },
+                        {
+                            "id": 97,
+                            "label": "車・バイク",
+                            "sortOrder": 100
+                        },
+                        {
+                            "id": 98,
+                            "label": "ドローン",
+                            "sortOrder": 110
+                        },
+                        {
+                            "id": 99,
+                            "label": "模型・プラモデル",
+                            "sortOrder": 120
+                        },
+                        {
+                            "id": 100,
+                            "label": "ガジェット",
+                            "sortOrder": 130
+                        },
+                        {
+                            "id": 101,
+                            "label": "メカ",
+                            "sortOrder": 140
+                        },
+                        {
+                            "id": 102,
+                            "label": "競馬",
+                            "sortOrder": 150
+                        },
+                        {
+                            "id": 103,
+                            "label": "競艇",
+                            "sortOrder": 160
+                        },
+                        {
+                            "id": 104,
+                            "label": "BL",
+                            "sortOrder": 170
+                        },
+                        {
+                            "id": 105,
+                            "label": "歌・カラオケ",
+                            "sortOrder": 180
+                        }
+                    ]
+                },
+                {
+                    "id": 18,
+                    "label": "エンタメ",
+                    "sortOrder": 30,
+                    "tags": [
+                        {
+                            "id": 106,
+                            "label": "ゲーム",
+                            "sortOrder": 10
+                        },
+                        {
+                            "id": 107,
+                            "label": "音楽",
+                            "sortOrder": 20
+                        },
+                        {
+                            "id": 108,
+                            "label": "アイドル",
+                            "sortOrder": 30
+                        },
+                        {
+                            "id": 109,
+                            "label": "お笑い",
+                            "sortOrder": 40
+                        },
+                        {
+                            "id": 110,
+                            "label": "VTuber",
+                            "sortOrder": 50
+                        },
+                        {
+                            "id": 111,
+                            "label": "怪談・心霊",
+                            "sortOrder": 60
+                        },
+                        {
+                            "id": 112,
+                            "label": "アニメ・漫画",
+                            "sortOrder": 70
+                        },
+                        {
+                            "id": 113,
+                            "label": "映画・特撮",
+                            "sortOrder": 80
+                        },
+                        {
+                            "id": 114,
+                            "label": "スポーツ",
+                            "sortOrder": 90
+                        },
+                        {
+                            "id": 115,
+                            "label": "eスポーツ",
+                            "sortOrder": 100
+                        }
+                    ]
+                },
+                {
+                    "id": 19,
+                    "label": "科学・技術",
+                    "sortOrder": 40,
+                    "tags": [
+                        {
+                            "id": 116,
+                            "label": "科学・学術",
+                            "sortOrder": 10
+                        },
+                        {
+                            "id": 117,
+                            "label": "技術・IT",
+                            "sortOrder": 20
+                        }
+                    ]
+                },
+                {
+                    "id": 20,
+                    "label": "文化・芸術",
+                    "sortOrder": 50,
+                    "tags": [
+                        {
+                            "id": 118,
+                            "label": "文化系",
+                            "sortOrder": 10
+                        },
+                        {
+                            "id": 119,
+                            "label": "芸術系",
+                            "sortOrder": 20
+                        }
+                    ]
+                },
+                {
+                    "id": 21,
+                    "label": "学び",
+                    "sortOrder": 60,
+                    "tags": [
+                        {
+                            "id": 120,
+                            "label": "語学",
+                            "sortOrder": 10
+                        },
+                        {
+                            "id": 121,
+                            "label": "歴史",
+                            "sortOrder": 20
+                        },
+                        {
+                            "id": 122,
+                            "label": "自己啓発",
+                            "sortOrder": 30
+                        },
+                        {
+                            "id": 123,
+                            "label": "手話",
+                            "sortOrder": 40
+                        },
+                        {
+                            "id": 124,
+                            "label": "雑学",
+                            "sortOrder": 50
+                        }
+                    ]
+                },
+                {
+                    "id": 22,
+                    "label": "創作",
+                    "sortOrder": 70,
+                    "tags": [
+                        {
+                            "id": 125,
+                            "label": "アバター・衣装",
+                            "sortOrder": 10
+                        },
+                        {
+                            "id": 126,
+                            "label": "ワールド",
+                            "sortOrder": 20
+                        },
+                        {
+                            "id": 127,
+                            "label": "Unity・Blender",
+                            "sortOrder": 30
+                        },
+                        {
+                            "id": 128,
+                            "label": "VRChat",
+                            "sortOrder": 40
+                        },
+                        {
+                            "id": 129,
+                            "label": "イラスト",
+                            "sortOrder": 50
+                        },
+                        {
+                            "id": 130,
+                            "label": "写真・映像",
+                            "sortOrder": 60
+                        }
+                    ]
+                },
+                {
+                    "id": 23,
+                    "label": "経済・社会",
+                    "sortOrder": 80,
+                    "tags": [
+                        {
+                            "id": 131,
+                            "label": "ビジネス",
+                            "sortOrder": 10
+                        },
+                        {
+                            "id": 132,
+                            "label": "お金",
+                            "sortOrder": 20
+                        },
+                        {
+                            "id": 133,
+                            "label": "働き方・キャリア",
+                            "sortOrder": 30
+                        },
+                        {
+                            "id": 134,
+                            "label": "国際",
+                            "sortOrder": 40
+                        },
+                        {
+                            "id": 135,
+                            "label": "法律",
+                            "sortOrder": 50
+                        },
+                        {
+                            "id": 136,
+                            "label": "多文化共生",
+                            "sortOrder": 60
+                        }
+                    ]
+                },
+                {
+                    "id": 24,
+                    "label": "その他",
+                    "sortOrder": 90,
+                    "tags": [
+                        {
+                            "id": 137,
+                            "label": "イベント",
+                            "sortOrder": 10
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": 25,
+            "label": "雰囲気",
+            "sortOrder": 40,
+            "children": [
+                {
+                    "id": 26,
+                    "label": "世界観",
+                    "sortOrder": 10,
+                    "tags": [
+                        {
+                            "id": 138,
+                            "label": "ファンタジー",
+                            "sortOrder": 10
+                        },
+                        {
+                            "id": 139,
+                            "label": "異世界",
+                            "sortOrder": 20
+                        },
+                        {
+                            "id": 140,
+                            "label": "メルヘン",
+                            "sortOrder": 30
+                        },
+                        {
+                            "id": 141,
+                            "label": "学校・学園",
+                            "sortOrder": 40
+                        },
+                        {
+                            "id": 142,
+                            "label": "SF・サイバー",
+                            "sortOrder": 50
+                        },
+                        {
+                            "id": 143,
+                            "label": "ホラー",
+                            "sortOrder": 60
+                        },
+                        {
+                            "id": 144,
+                            "label": "ダーク・アウトロー",
+                            "sortOrder": 70
+                        },
+                        {
+                            "id": 145,
+                            "label": "コズミック",
+                            "sortOrder": 80
+                        },
+                        {
+                            "id": 146,
+                            "label": "スプーキー",
+                            "sortOrder": 90
+                        },
+                        {
+                            "id": 147,
+                            "label": "終末",
+                            "sortOrder": 100
+                        },
+                        {
+                            "id": 148,
+                            "label": "和風",
+                            "sortOrder": 110
+                        },
+                        {
+                            "id": 149,
+                            "label": "自然",
+                            "sortOrder": 120
+                        },
+                        {
+                            "id": 150,
+                            "label": "海・プール",
+                            "sortOrder": 130
+                        }
+                    ]
+                },
+                {
+                    "id": 27,
+                    "label": "ムード",
+                    "sortOrder": 20,
+                    "tags": [
+                        {
+                            "id": 151,
+                            "label": "ゆったり",
+                            "sortOrder": 10
+                        },
+                        {
+                            "id": 152,
+                            "label": "チル",
+                            "sortOrder": 20
+                        },
+                        {
+                            "id": 153,
+                            "label": "癒やし",
+                            "sortOrder": 30
+                        },
+                        {
+                            "id": 154,
+                            "label": "にぎやか",
+                            "sortOrder": 40
+                        },
+                        {
+                            "id": 155,
+                            "label": "盛り上がる",
+                            "sortOrder": 50
+                        },
+                        {
+                            "id": 156,
+                            "label": "華やか",
+                            "sortOrder": 60
+                        },
+                        {
+                            "id": 157,
+                            "label": "フレンドリー",
+                            "sortOrder": 70
+                        },
+                        {
+                            "id": 158,
+                            "label": "幻想的",
+                            "sortOrder": 80
+                        },
+                        {
+                            "id": 159,
+                            "label": "妖艶",
+                            "sortOrder": 90
+                        },
+                        {
+                            "id": 160,
+                            "label": "ノスタルジー",
+                            "sortOrder": 100
+                        },
+                        {
+                            "id": 161,
+                            "label": "ふわふわ",
+                            "sortOrder": 110
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": 28,
+            "label": "アバター",
+            "sortOrder": 50,
+            "children": [
+                {
+                    "id": 29,
+                    "label": "役柄",
+                    "sortOrder": 10,
+                    "tags": [
+                        {
+                            "id": 162,
+                            "label": "ママ",
+                            "sortOrder": 10
+                        },
+                        {
+                            "id": 163,
+                            "label": "お姉さん",
+                            "sortOrder": 20
+                        },
+                        {
+                            "id": 164,
+                            "label": "お兄さん",
+                            "sortOrder": 30
+                        },
+                        {
+                            "id": 165,
+                            "label": "お嬢様",
+                            "sortOrder": 40
+                        }
+                    ]
+                },
+                {
+                    "id": 30,
+                    "label": "見た目",
+                    "sortOrder": 20,
+                    "tags": [
+                        {
+                            "id": 166,
+                            "label": "美少女",
+                            "sortOrder": 10
+                        },
+                        {
+                            "id": 167,
+                            "label": "イケメン",
+                            "sortOrder": 20
+                        },
+                        {
+                            "id": 168,
+                            "label": "ちびっ子",
+                            "sortOrder": 30
+                        },
+                        {
+                            "id": 169,
+                            "label": "少年",
+                            "sortOrder": 40
+                        },
+                        {
+                            "id": 170,
+                            "label": "男性アバター",
+                            "sortOrder": 50
+                        }
+                    ]
+                },
+                {
+                    "id": 31,
+                    "label": "タイプ",
+                    "sortOrder": 30,
+                    "tags": [
+                        {
+                            "id": 171,
+                            "label": "ケモノ",
+                            "sortOrder": 10
+                        },
+                        {
+                            "id": 172,
+                            "label": "動物系",
+                            "sortOrder": 20
+                        },
+                        {
+                            "id": 173,
+                            "label": "サキュバス",
+                            "sortOrder": 30
+                        },
+                        {
+                            "id": 174,
+                            "label": "インキュバス",
+                            "sortOrder": 40
+                        },
+                        {
+                            "id": 175,
+                            "label": "悪魔・魔物",
+                            "sortOrder": 50
+                        },
+                        {
+                            "id": 176,
+                            "label": "天使",
+                            "sortOrder": 60
+                        },
+                        {
+                            "id": 177,
+                            "label": "エルフ",
+                            "sortOrder": 70
+                        },
+                        {
+                            "id": 178,
+                            "label": "妖精",
+                            "sortOrder": 80
+                        },
+                        {
+                            "id": 179,
+                            "label": "ロボット",
+                            "sortOrder": 90
+                        },
+                        {
+                            "id": 180,
+                            "label": "ドラゴン",
+                            "sortOrder": 100
+                        },
+                        {
+                            "id": 181,
+                            "label": "マスコット",
+                            "sortOrder": 110
+                        },
+                        {
+                            "id": 182,
+                            "label": "人魚",
+                            "sortOrder": 120
+                        },
+                        {
+                            "id": 183,
+                            "label": "異種族系",
+                            "sortOrder": 130
+                        },
+                        {
+                            "id": 184,
+                            "label": "人外系",
+                            "sortOrder": 140
+                        }
+                    ]
+                },
+                {
+                    "id": 32,
+                    "label": "印象",
+                    "sortOrder": 40,
+                    "tags": [
+                        {
+                            "id": 185,
+                            "label": "清楚",
+                            "sortOrder": 10
+                        },
+                        {
+                            "id": 186,
+                            "label": "セクシー",
+                            "sortOrder": 20
+                        },
+                        {
+                            "id": 187,
+                            "label": "かわいい",
+                            "sortOrder": 30
+                        }
+                    ]
+                },
+                {
+                    "id": 33,
+                    "label": "ボイス",
+                    "sortOrder": 50,
+                    "tags": [
+                        {
+                            "id": 188,
+                            "label": "低音・イケボ",
+                            "sortOrder": 10
+                        },
+                        {
+                            "id": 189,
+                            "label": "両声類",
+                            "sortOrder": 20
+                        }
+                    ]
+                },
+                {
+                    "id": 34,
+                    "label": "職業・衣装",
+                    "sortOrder": 60,
+                    "tags": [
+                        {
+                            "id": 190,
+                            "label": "メイド",
+                            "sortOrder": 10
+                        },
+                        {
+                            "id": 191,
+                            "label": "執事",
+                            "sortOrder": 20
+                        },
+                        {
+                            "id": 192,
+                            "label": "バニー",
+                            "sortOrder": 30
+                        },
+                        {
+                            "id": 193,
+                            "label": "ギャル",
+                            "sortOrder": 40
+                        },
+                        {
+                            "id": 194,
+                            "label": "アイドル",
+                            "sortOrder": 50
+                        },
+                        {
+                            "id": 195,
+                            "label": "女装",
+                            "sortOrder": 60
+                        },
+                        {
+                            "id": 196,
+                            "label": "男装",
+                            "sortOrder": 70
+                        }
+                    ]
+                },
+                {
+                    "id": 35,
+                    "label": "性格",
+                    "sortOrder": 70,
+                    "tags": [
+                        {
+                            "id": 197,
+                            "label": "小悪魔",
+                            "sortOrder": 10
+                        },
+                        {
+                            "id": 198,
+                            "label": "病み・地雷系",
+                            "sortOrder": 20
+                        },
+                        {
+                            "id": 199,
+                            "label": "ツンデレ",
+                            "sortOrder": 30
+                        },
+                        {
+                            "id": 200,
+                            "label": "メスガキ",
+                            "sortOrder": 40
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": 36,
+            "label": "スタイル",
+            "sortOrder": 60,
+            "children": [
+                {
+                    "id": 37,
+                    "label": "対象",
+                    "sortOrder": 10,
+                    "tags": [
+                        {
+                            "id": 201,
+                            "label": "初心者向け",
+                            "sortOrder": 10
+                        },
+                        {
+                            "id": 202,
+                            "label": "初心者歓迎",
+                            "sortOrder": 20
+                        },
+                        {
+                            "id": 203,
+                            "label": "無言勢歓迎",
+                            "sortOrder": 30
+                        },
+                        {
+                            "id": 204,
+                            "label": "Quest向け",
+                            "sortOrder": 40
+                        },
+                        {
+                            "id": 205,
+                            "label": "クリエイター向け",
+                            "sortOrder": 50
+                        }
+                    ]
+                },
+                {
+                    "id": 38,
+                    "label": "ルール",
+                    "sortOrder": 20,
+                    "tags": [
+                        {
+                            "id": 206,
+                            "label": "事前応募",
+                            "sortOrder": 10
+                        },
+                        {
+                            "id": 207,
+                            "label": "入退室自由",
+                            "sortOrder": 20
+                        },
+                        {
+                            "id": 208,
+                            "label": "見学OK",
+                            "sortOrder": 30
+                        },
+                        {
+                            "id": 209,
+                            "label": "配信OK",
+                            "sortOrder": 40
+                        },
+                        {
+                            "id": 210,
+                            "label": "Trusted限定",
+                            "sortOrder": 50
+                        },
+                        {
+                            "id": 211,
+                            "label": "女性限定",
+                            "sortOrder": 60
+                        }
+                    ]
+                },
+                {
+                    "id": 39,
+                    "label": "体制",
+                    "sortOrder": 30,
+                    "tags": [
+                        {
+                            "id": 212,
+                            "label": "少人数制",
+                            "sortOrder": 10
+                        },
+                        {
+                            "id": 213,
+                            "label": "個室",
+                            "sortOrder": 20
+                        },
+                        {
+                            "id": 214,
+                            "label": "1対1",
+                            "sortOrder": 30
+                        },
+                        {
+                            "id": 215,
+                            "label": "リアル女性",
+                            "sortOrder": 40
+                        }
+                    ]
+                },
+                {
+                    "id": 40,
+                    "label": "形式",
+                    "sortOrder": 40,
+                    "tags": [
+                        {
+                            "id": 216,
+                            "label": "大会",
+                            "sortOrder": 10
+                        },
+                        {
+                            "id": 217,
+                            "label": "お祭り",
+                            "sortOrder": 20
+                        },
+                        {
+                            "id": 218,
+                            "label": "生誕祭",
+                            "sortOrder": 30
+                        },
+                        {
+                            "id": 219,
+                            "label": "個人イベント",
+                            "sortOrder": 40
+                        }
+                    ]
+                },
+                {
+                    "id": 41,
+                    "label": "企画・演出",
+                    "sortOrder": 50,
+                    "tags": [
+                        {
+                            "id": 220,
+                            "label": "コンセプト系",
+                            "sortOrder": 10
+                        }
+                    ]
+                },
+                {
+                    "id": 42,
+                    "label": "その他",
+                    "sortOrder": 60,
+                    "tags": [
+                        {
+                            "id": 221,
+                            "label": "キャスト・スタッフ募集中",
+                            "sortOrder": 10
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

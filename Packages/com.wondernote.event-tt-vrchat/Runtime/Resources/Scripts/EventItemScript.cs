@@ -22,6 +22,7 @@ public class EventItemScript : UdonSharpBehaviour
     private Canvas canvas;
     private CanvasGroup mainPanelCanvasGroup;
     private GameObject detailsPanelPrefab;
+    private GameObject tagBadgePrefab;
     private GameObject detailsTextPrefab;
     private GameObject detailsImagePrefab;
     private GameObject[] videoPlayerPrefabs;
@@ -36,6 +37,9 @@ public class EventItemScript : UdonSharpBehaviour
     private bool isThumbnailSet = false;
     private string groupID;
     private int supportedModel;
+    private int detailSlot;
+    private int detailPackNo;
+    private string[] tagLabels;
     private string categoryLabel;
     private Color categoryColor;
 
@@ -113,20 +117,23 @@ public class EventItemScript : UdonSharpBehaviour
         thumbnailImage.uvRect = new Rect(currentRect.x, currentRect.y + currentRect.height, currentRect.width, -currentRect.height);
         } else {
             thumbnailButton.interactable = false;
-            _isPlaceholder = true;
         }
     }
 
-    public void SetDetails(int _contentID, string _summary, string _details, string _groupID, int _supportedModel, Canvas _canvas, GameObject _detailsPanelPrefab, GameObject _detailsTextPrefab, GameObject _detailsImagePrefab, GameObject[] _videoPlayerPrefabs, GameObject _linkedFieldContainerPrefab, CanvasGroup _mainPanelCanvasGroup, AudioManager _audioManager, EventTimetable timetable)
+    public void SetDetails(int _contentID, string _summary, string _details, string _groupID, int _supportedModel, int _detailSlot, int _detailPackNo, string[] _tagLabels, Canvas _canvas, GameObject _detailsPanelPrefab, GameObject _tagBadgePrefab, GameObject _detailsTextPrefab, GameObject _detailsImagePrefab, GameObject[] _videoPlayerPrefabs, GameObject _linkedFieldContainerPrefab, CanvasGroup _mainPanelCanvasGroup, AudioManager _audioManager, EventTimetable timetable)
     {
         contentID = _contentID;
         summary = _summary;
         details = _details;
         groupID = _groupID;
         supportedModel = _supportedModel;
+        detailSlot = _detailSlot;
+        detailPackNo = _detailPackNo;
+        tagLabels = _tagLabels;
         canvas = _canvas;
         mainPanelCanvasGroup = _mainPanelCanvasGroup;
         detailsPanelPrefab = _detailsPanelPrefab;
+        tagBadgePrefab = _tagBadgePrefab;
         detailsTextPrefab = _detailsTextPrefab;
         detailsImagePrefab = _detailsImagePrefab;
         videoPlayerPrefabs = _videoPlayerPrefabs;
@@ -144,10 +151,13 @@ public class EventItemScript : UdonSharpBehaviour
             DetailsPanelController detailsPanelController = detailsPanel.GetComponent<DetailsPanelController>();
             if (detailsPanelController != null)
             {
-                DataList detailedImgsByContentList = eventTimetable.GetDetailedImgsByContent(contentID);
-                TextureFormat textureFormat = eventTimetable.GetTextureFormat();
+                TextureFormat textureFormat = eventTimetable.GetTextureFormat(); 
 
-                detailsPanelController.SetEventDetails(title, dateTime, categoryLabel, categoryColor, summary, details, texture, groupID, supportedModel, mainPanelCanvasGroup, detailsTextPrefab, detailsImagePrefab, videoPlayerPrefabs, linkedFieldContainerPrefab, audioManager, detailedImgsByContentList, textureFormat, eventTimetable);
+                detailsPanelController.SetEventDetails(title, dateTime, categoryLabel, categoryColor, summary, details, texture, groupID, supportedModel, tagLabels, mainPanelCanvasGroup, tagBadgePrefab, detailsTextPrefab, detailsImagePrefab, videoPlayerPrefabs, linkedFieldContainerPrefab, audioManager, textureFormat, eventTimetable);
+
+                if (detailPackNo > 0) {
+                    eventTimetable.RequestDetailedImages(detailsPanelController, detailSlot, detailPackNo);
+                }
             }
 
             mainPanelCanvasGroup.interactable = false;
@@ -197,6 +207,7 @@ public class EventItemScript : UdonSharpBehaviour
         SetDateTime(DateTime.MinValue);
         SetCategoryHidden();
         SetThumbnailImage(blankLogo, false);
+        thumbnailImage.raycastTarget = false;
     }
 
     public void SetStableIndex(int idx)
@@ -226,9 +237,10 @@ public class EventItemScript : UdonSharpBehaviour
         dateTimeText.enabled = on;
         categoryLabelText.enabled = on;
 
-        thumbnailButton.interactable = on;
+        bool thumbnailInteractive = on && !_isPlaceholder && isThumbnailSet;
+        thumbnailButton.interactable = thumbnailInteractive;
+        thumbnailImage.raycastTarget = thumbnailInteractive;
 
-        thumbnailImage.raycastTarget = on;
         dateTimeTextBackground.raycastTarget = on;
         categoryLabelTextBackground.raycastTarget = on;
         titleText.raycastTarget = on;

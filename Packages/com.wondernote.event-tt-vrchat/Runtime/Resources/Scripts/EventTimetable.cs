@@ -10,6 +10,7 @@ using VRC.SDK3.Data;
 using VRC.SDK3.Image;
 using VRC.Economy;
 using System;
+using System.Text;
 using TMPro;
 using WonderNote.EventTimeTable;
 
@@ -17,19 +18,16 @@ using WonderNote.EventTimeTable;
 public class EventTimetable : UdonSharpBehaviour
 {
     [Header("API Settings")]
-    [SerializeField] private VRCUrl pcTimetableApiUrl;
-    [SerializeField] private VRCUrl androidTimetableApiUrl;
+    [SerializeField, HideInInspector] private VRCUrl pcTimetableApiUrl;
+    [SerializeField, HideInInspector] private VRCUrl androidTimetableApiUrl;
+    [SerializeField, HideInInspector] private int[] presetTagIds = new int[0];
     private VRCUrl activeTimetableApiUrl;
 
-    [SerializeField] private VRCUrl pcSchemaApiUrl;
-    [SerializeField] private VRCUrl androidSchemaApiUrl;
-    private VRCUrl activeSchemaApiUrl;
-
-    [SerializeField] private VRCUrl[] pcDetailedImagesUrls;
-    [SerializeField] private VRCUrl[] androidDetailedImagesUrls;
+    [SerializeField, HideInInspector] private VRCUrl[] pcDetailedImagesUrls;
+    [SerializeField, HideInInspector] private VRCUrl[] androidDetailedImagesUrls;
     private VRCUrl[] activeDetailedImagesUrls;
 
-    [SerializeField] private VRCUrl[] detailedVideoUrls;
+    [SerializeField, HideInInspector] private VRCUrl[] detailedVideoUrls;
 
     [Header("Event Item Settings")]
     [SerializeField] private GameObject dateTimeContainers;
@@ -40,7 +38,7 @@ public class EventTimetable : UdonSharpBehaviour
 
     [Header("Default Image Settings")]
     [SerializeField] private Image backGroundImage;
-    [SerializeField] private Sprite backGroundSprite;
+    [SerializeField, HideInInspector] private Sprite backGroundSprite;
     [SerializeField] private Sprite parseErrorSprite;
     [SerializeField] private Sprite noEventsSprite;
     [SerializeField] private Sprite loadErrorSprite;
@@ -84,6 +82,7 @@ public class EventTimetable : UdonSharpBehaviour
     [SerializeField] private Canvas canvas;
     [SerializeField] private CanvasGroup mainPanelCanvasGroup;
     [SerializeField] private GameObject detailsPanelPrefab;
+    [SerializeField] private GameObject tagBadgePrefab;
     [SerializeField] private GameObject detailsTextPrefab;
     [SerializeField] private GameObject detailsImagePrefab;
     [SerializeField] private GameObject[] videoPlayerPrefabs;
@@ -100,8 +99,6 @@ public class EventTimetable : UdonSharpBehaviour
     private int totalTimeItems = 0;
     private int processedTimeItems = 0;
 
-    private int loadingChunkIndex = 0;
-    private int detailedImagesChunkCount = 0;
     private DataList eventList = new DataList();
     private DataList detailedImagesList = new DataList();
     private int gridLayoutPaddingLeft = 37;
@@ -112,18 +109,17 @@ public class EventTimetable : UdonSharpBehaviour
 
     private const int FRAME_PROCESS_LIMIT_MS = 5;
     private int jsonParseIndex = 0;
-    private int imgsJsonParseIndex;
-    private DataToken cachedJsonResultImgs;
-    private DataToken cachedJsonResult;
+    private DataToken cachedDetailedJsonResult;
+    private DataToken cachedJsonResult;    
 
     private System.Diagnostics.Stopwatch splitProcessTime = new System.Diagnostics.Stopwatch();
     private System.Diagnostics.Stopwatch jsonChunksParseProcessTime = new System.Diagnostics.Stopwatch();
     private System.Diagnostics.Stopwatch jsonParseProcessTime = new System.Diagnostics.Stopwatch();
     private System.Diagnostics.Stopwatch eventDisplayTime = new System.Diagnostics.Stopwatch();
     private System.Diagnostics.Stopwatch updateHeightTime = new System.Diagnostics.Stopwatch();
-    private System.Diagnostics.Stopwatch splitImgsProcessTime = new System.Diagnostics.Stopwatch();
-    private System.Diagnostics.Stopwatch imgsJsonChunksParseProcessTime = new System.Diagnostics.Stopwatch();
-    private System.Diagnostics.Stopwatch imgsJsonParseProcessTime = new System.Diagnostics.Stopwatch();
+    private System.Diagnostics.Stopwatch splitDetailedProcessTime = new System.Diagnostics.Stopwatch();
+    private System.Diagnostics.Stopwatch detailedJsonChunksParseProcessTime = new System.Diagnostics.Stopwatch();
+    private System.Diagnostics.Stopwatch detailedJsonParseProcessTime = new System.Diagnostics.Stopwatch();
 
     private bool[] parseResult = { false, true };
 
@@ -133,11 +129,11 @@ public class EventTimetable : UdonSharpBehaviour
     private int splitStartIndex = 0;
     private string arrayContent;
 
-    private int imgsJsonChunkIndex;
-    private DataList imgsJsonChunksList = new DataList();
-    private DataList parsedChunksImgsList = new DataList();
-    private int splitStartIndex_imgs;
-    private string arrayContent_imgs;
+    private int detailedJsonChunkIndex = 0;
+    private DataList detailedJsonChunksList = new DataList();
+    private DataList parsedDetailedChunksList = new DataList();
+    private int detailedSplitStartIndex = 0;
+    private string detailedArrayContent;
 
     private int dateItemIndex = 0;
     private int timeItemIndex = 0;
@@ -155,14 +151,32 @@ public class EventTimetable : UdonSharpBehaviour
 
     private int appliesThisFrame;
     private byte[][] thumbnailBytes;
+    private byte[] wnpkBytes;
+    private int[] wnpkThumbOffsets;
+    private int[] wnpkThumbLengths;
+    private string[] parsedWnpkMetaJson;
+    private int[] parsedWnpkOffsets;
+    private int[] parsedWnpkLengths;
+    private const int DETAILED_PACKS_PER_SLOT = 512;
+
     private string[] detailedImageIds;
     private byte[][] detailedImageBytes;
     private int detailedImageParseIndex = 0;
+    private DataList fetchedDetailedImagesUrls = new DataList();
+    private byte[] detailedWnpkBytes;
+    private int[] detailedWnpkOffsets;
+    private int[] detailedWnpkLengths;
+    private VRCUrl requestedDetailedImagesUrl;
+    private DetailsPanelController requestedDetailsPanel;
 
     [Header("Virtualization Settings")]
     [SerializeField] private GameObject proximityMessage;
+    [SerializeField] private Image proximityImage;
+    [SerializeField] private Sprite iosUnsupportedSprite;
     [SerializeField] private RectTransform viewport;
     [SerializeField] private ProximityToggle proximityToggle;
+    [SerializeField] private GameObject titleRoot;
+    [SerializeField] private GameObject footerRoot;
     private RectTransform[] eventItemRects;
     private GameObject[] eventItemObjects;
     private int eventItemCount;
@@ -177,6 +191,7 @@ public class EventTimetable : UdonSharpBehaviour
     private bool _wingShown = false;
     private DataList schemaCategoriesList = new DataList();
     private DataList schemaTagsList = new DataList();
+    private DataList schemaTagGroupsList = new DataList();
     private DataList schemaProgramsList = new DataList();
     private int[] eventCategoryIds;
     private int[][] eventTagIds;
@@ -203,12 +218,10 @@ public class EventTimetable : UdonSharpBehaviour
             textureFormat = TextureFormat.ETC_RGB4Crunched;
             activeDetailedImagesUrls = androidDetailedImagesUrls;
             activeTimetableApiUrl = androidTimetableApiUrl;
-            activeSchemaApiUrl = androidSchemaApiUrl;
         #else
             textureFormat = TextureFormat.DXT1Crunched;
             activeDetailedImagesUrls = pcDetailedImagesUrls;
             activeTimetableApiUrl = pcTimetableApiUrl;
-            activeSchemaApiUrl = pcSchemaApiUrl;
         #endif
 
         previewQuad.SetActive(false);
@@ -218,7 +231,27 @@ public class EventTimetable : UdonSharpBehaviour
         returnButton.SetActive(false);
         FooterText.text = "■イベントの登録はウェブサイト (https://wondernote.net/) から　■アセットのダウンロードはVCC・GitHub・BOOTHから　※詳しくは左記サイトをご覧ください";
 
+        #if UNITY_IOS
+            proximityImage.sprite = iosUnsupportedSprite;
+        #endif
+
+        ApplyOutsideView();
+    }
+
+    public void ApplyInsideView()
+    {
+        titleRoot.SetActive(true);
+        footerRoot.SetActive(true);
+        proximityMessage.SetActive(false);
+        wingController.SetModalBackdrop(true);
+    }
+
+    public void ApplyOutsideView()
+    {
+        titleRoot.SetActive(false);
+        footerRoot.SetActive(false);
         proximityMessage.SetActive(true);
+        wingController.SetModalBackdrop(false);
     }
 
     public void BeginLoad()
@@ -228,7 +261,6 @@ public class EventTimetable : UdonSharpBehaviour
         isLoaded = true;
         loadingScreen.SetActive(true);
         FetchTimetableInfo();
-        FetchSchemaInfo();
     }
 
     private void FetchTimetableInfo()
@@ -236,24 +268,15 @@ public class EventTimetable : UdonSharpBehaviour
         VRCStringDownloader.LoadUrl(activeTimetableApiUrl, this.GetComponent<UdonBehaviour>());
     }
 
-    private void FetchSchemaInfo()
-    {
-        VRCStringDownloader.LoadUrl(activeSchemaApiUrl, this.GetComponent<UdonBehaviour>());
-    }
-
     public override void OnStringLoadSuccess(IVRCStringDownload download)
     {
         if (download.Url == activeTimetableApiUrl)
         {
-            StartJsonParsing(download.Result);
+            StartWnpkParsing(download.ResultBytes);
         }
-        else if (download.Url == activeSchemaApiUrl)
+        else if (download.Url == requestedDetailedImagesUrl)
         {
-            ParseSchema(download.Result);
-        }
-        else
-        {
-            StartImgsJsonParsing(download.Result);
+            StartDetailedWnpkParsing(download.ResultBytes);
         }
     }
 
@@ -268,10 +291,193 @@ public class EventTimetable : UdonSharpBehaviour
             backGroundImage.sprite = loadErrorSprite;
             Debug.LogError($"Error loading main timetable string from {result.Url}: {result.ErrorCode} - {result.Error}");
         }
+        else if (result.Url == requestedDetailedImagesUrl)
+        {
+            Debug.LogError($"Error loading detailed_images pack from {result.Url}: {result.ErrorCode} - {result.Error}");
+            ClearDetailedTemporaryState();
+            requestedDetailedImagesUrl = VRCUrl.Empty;
+            requestedDetailsPanel = null;
+        }
+    }
+
+    private void StartWnpkParsing(byte[] packBytes)
+    {
+        if (!TryParseWnpkCommon(packBytes, "WNPK parse error"))
+        {
+            SetIsSuccess(false);
+            SetIsEmpty(true);
+            ContinueOnStringLoadSuccess();
+            return;
+        }
+
+        wnpkBytes = packBytes;
+        wnpkThumbOffsets = parsedWnpkOffsets;
+        wnpkThumbLengths = parsedWnpkLengths;
+
+        if (string.IsNullOrEmpty(parsedWnpkMetaJson[0]))
+        {
+            Debug.LogError("Timetable WNPK parse error: events section is missing.");
+            SetIsSuccess(false);
+            SetIsEmpty(true);
+            ContinueOnStringLoadSuccess();
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(parsedWnpkMetaJson[1]))
+        {
+            ParseSchema(parsedWnpkMetaJson[1]);
+        }
         else
         {
-            Debug.LogError($"Error loading detailed_images string from {result.Url}: {result.ErrorCode} - {result.Error}");
+            Debug.LogError("Timetable WNPK parse warning: schema section is empty.");
         }
+
+        StartJsonParsing(parsedWnpkMetaJson[0]);
+
+        parsedWnpkMetaJson = null;
+        parsedWnpkOffsets = null;
+        parsedWnpkLengths = null;
+    }
+
+    private bool TryParseWnpkCommon(byte[] packBytes, string errorPrefix)
+    {
+        parsedWnpkMetaJson = null;
+        parsedWnpkOffsets = null;
+        parsedWnpkLengths = null;
+
+        if (packBytes == null || packBytes.Length < 9)
+        {
+            Debug.LogError($"{errorPrefix}: pack is null or too small.");
+            return false;
+        }
+
+        if (packBytes[0] != (byte)'W' || packBytes[1] != (byte)'N' || packBytes[2] != (byte)'P' || packBytes[3] != (byte)'K')
+        {
+            Debug.LogError($"{errorPrefix}: magic mismatch.");
+            return false;
+        }
+
+        int cursor = 4;
+        int version = packBytes[cursor];
+        cursor += 1;
+
+        int jsonSectionCount = ReadInt32LE(packBytes, cursor);
+        cursor += 4;
+
+        if (jsonSectionCount <= 0)
+        {
+            Debug.LogError($"{errorPrefix}: jsonSectionCount <= 0.");
+            return false;
+        }
+
+        parsedWnpkMetaJson = new string[jsonSectionCount];
+
+        for (int i = 0; i < jsonSectionCount; i++)
+        {
+            if (cursor + 4 > packBytes.Length)
+            {
+                Debug.LogError($"{errorPrefix}: missing json length for section #{i}.");
+                return false;
+            }
+
+            int jsonLen = ReadInt32LE(packBytes, cursor);
+            cursor += 4;
+
+            if (jsonLen < 0 || cursor + jsonLen > packBytes.Length)
+            {
+                Debug.LogError($"{errorPrefix}: invalid json length for section #{i}.");
+                return false;
+            }
+
+            byte[] jsonBytes = new byte[jsonLen];
+            Array.Copy(packBytes, cursor, jsonBytes, 0, jsonLen);
+            cursor += jsonLen;
+
+            parsedWnpkMetaJson[i] = Encoding.UTF8.GetString(jsonBytes);
+        }
+
+        if (cursor + 4 > packBytes.Length)
+        {
+            Debug.LogError($"{errorPrefix}: missing image count.");
+            return false;
+        }
+
+        int imgCount = ReadInt32LE(packBytes, cursor);
+        cursor += 4;
+
+        if (imgCount < 0)
+        {
+            Debug.LogError($"{errorPrefix}: imgCount < 0.");
+            return false;
+        }
+
+        parsedWnpkOffsets = new int[imgCount];
+        parsedWnpkLengths = new int[imgCount];
+
+        for (int i = 0; i < imgCount; i++)
+        {
+            if (cursor + 4 > packBytes.Length)
+            {
+                Debug.LogError($"{errorPrefix}: missing length for image #{i}.");
+                parsedWnpkMetaJson = null;
+                parsedWnpkOffsets = null;
+                parsedWnpkLengths = null;
+                return false;
+            }
+
+            int len = ReadInt32LE(packBytes, cursor);
+            cursor += 4;
+
+            if (len < 0 || cursor + len > packBytes.Length)
+            {
+                Debug.LogError($"{errorPrefix}: invalid length for image #{i}.");
+                parsedWnpkMetaJson = null;
+                parsedWnpkOffsets = null;
+                parsedWnpkLengths = null;
+                return false;
+            }
+
+            parsedWnpkOffsets[i] = cursor;
+            parsedWnpkLengths[i] = len;
+            cursor += len;
+        }
+
+        return true;
+    }
+
+    private int ReadInt32LE(byte[] bytes, int offset)
+    {
+        int b0 = (int)bytes[offset + 0];
+        int b1 = (int)bytes[offset + 1] << 8;
+        int b2 = (int)bytes[offset + 2] << 16;
+        int b3 = (int)bytes[offset + 3] << 24;
+        return b0 | b1 | b2 | b3;
+    }
+
+    public byte[] GetThumbnailBytesFromWnpk(int index)
+    {
+        if (wnpkBytes == null || wnpkThumbOffsets == null || wnpkThumbLengths == null) return null;
+        if (index < 0 || index >= wnpkThumbLengths.Length) return null;
+
+        int len = wnpkThumbLengths[index];
+        if (len <= 0) return null;
+
+        int off = wnpkThumbOffsets[index];
+        if (off < 0 || off + len > wnpkBytes.Length) return null;
+
+        // byte[] dst = new byte[len];
+        // Array.Copy(wnpkBytes, off, dst, 0, len);
+        // return dst;
+
+        // ------- StringLoading 改善までの処置（将来的に削除） ------- 
+        byte[] base64Bytes = new byte[len];
+        Array.Copy(wnpkBytes, off, base64Bytes, 0, len);
+
+        string base64 = Encoding.UTF8.GetString(base64Bytes);
+        if (string.IsNullOrEmpty(base64)) return null;
+
+        return Convert.FromBase64String(base64);
+        // ------- ここまで ------- 
     }
 
     private void StartJsonParsing(string jsonResponse)
@@ -312,7 +518,7 @@ public class EventTimetable : UdonSharpBehaviour
             splitStartIndex = endIndex + 1;
 
             float progress = (float)splitStartIndex / arrayContentLength;
-            UpdateLoadingProgress(progress * 0.02f);
+            UpdateLoadingProgress(progress * 0.01f);
 
             if (splitProcessTime.ElapsedMilliseconds > FRAME_PROCESS_LIMIT_MS)
             {
@@ -346,8 +552,8 @@ public class EventTimetable : UdonSharpBehaviour
 
             jsonChunkIndex++;
 
-            float progress = (float)jsonChunkIndex /jsonChunksListCount;
-            UpdateLoadingProgress(0.02f + progress * 0.02f);
+            float progress = (float)jsonChunkIndex / jsonChunksListCount;
+            UpdateLoadingProgress(0.01f + progress * 0.01f);
 
             if (jsonChunksParseProcessTime.ElapsedMilliseconds > FRAME_PROCESS_LIMIT_MS)
             {
@@ -447,15 +653,13 @@ public class EventTimetable : UdonSharpBehaviour
                 }
                 newEventDictionary.Add("is_recurring", new DataToken((int)eventDictionary["is_recurring"].Double));
                 newEventDictionary.Add("supports_mobile", new DataToken((int)eventDictionary["supports_mobile"].Double));
+                newEventDictionary.Add("detail_slot", new DataToken((int)eventDictionary["detail_slot"].Double));
+                newEventDictionary.Add("detail_pack_no", new DataToken((int)eventDictionary["detail_pack_no"].Double));
 
-                thumbnailBytes[idx] = Convert.FromBase64String(eventDictionary["thumbnailBase64Image"].String);
+                thumbnailBytes[idx] = GetThumbnailBytesFromWnpk((int)eventDictionary["thumbnail_index"].Double);
 
                 eventList.Add(new DataToken(newEventDictionary));
 
-                if (jsonParseIndex == 1)
-                {
-                    detailedImagesChunkCount = (int)eventDictionary["detailedImagesChunkCount"].Double;
-                }
             }
             else
             {
@@ -463,7 +667,7 @@ public class EventTimetable : UdonSharpBehaviour
             }
 
             float progress = (float)jsonParseIndex / cachedJsonResultCount;
-            UpdateLoadingProgress(0.04f + progress * 0.47f);
+            UpdateLoadingProgress(0.02f + progress * 0.06f);
 
             if (jsonParseProcessTime.ElapsedMilliseconds > FRAME_PROCESS_LIMIT_MS)
             {
@@ -471,6 +675,10 @@ public class EventTimetable : UdonSharpBehaviour
                 return;
             }
         }
+
+        wnpkBytes = null;
+        wnpkThumbOffsets = null;
+        wnpkThumbLengths = null;
 
         jsonParseProcessTime.Stop();
         SetIsSuccess(true);
@@ -581,18 +789,23 @@ public class EventTimetable : UdonSharpBehaviour
                     int thumbnailWidth = eventData["thumbnail_width"].Int;
                     int thumbnailHeight = eventData["thumbnail_height"].Int;
 
-                    string base64ThumbnailImage = eventData["thumbnailBase64Image"].String;
                     byte[] imageBytes = thumbnailBytes[idx];
 
-                    Texture2D newTexture = new Texture2D(thumbnailWidth, thumbnailHeight, textureFormat, false, false);
-                    newTexture.LoadRawTextureData(imageBytes);
+                    if (imageBytes == null || imageBytes.Length == 0) {
+                        eventItemScript.SetThumbnailImage(blankLogoImage, false);
+                    } else {
+                        Texture2D newTexture = new Texture2D(thumbnailWidth, thumbnailHeight, textureFormat, false, false);
+                        newTexture.LoadRawTextureData(imageBytes);
 
-                    newTexture.Apply(false, true);
-                    appliesThisFrame++;
+                        newTexture.Apply(false, true);
+                        appliesThisFrame++;
 
-                    if (TryRegisterRuntimeTexture(newTexture)) {
-                        eventItemScript.SetThumbnailImage(newTexture, true);
-                        thumbnailTextureCount++;
+                        if (TryRegisterRuntimeTexture(newTexture)) {
+                            eventItemScript.SetThumbnailImage(newTexture, true);
+                            thumbnailTextureCount++;
+                        } else {
+                            eventItemScript.SetThumbnailImage(blankLogoImage, false);
+                        }
                     }
 
                     thumbnailBytes[idx] = null;
@@ -602,15 +815,8 @@ public class EventTimetable : UdonSharpBehaviour
                     string details = !eventData["details"].IsNull ? eventData["details"].String : null;
                     string groupId = !eventData["group_id"].IsNull ? eventData["group_id"].String : null;
                     int supportedModel = eventData["supported_model"].Int;
-
-                    eventItemScript.SetDetails(contentID, summary, details, groupId, supportedModel, canvas, detailsPanelPrefab, detailsTextPrefab, detailsImagePrefab, videoPlayerPrefabs, linkedFieldContainerPrefab, mainPanelCanvasGroup, audioManager, this);
-                    eventItemScript.SetProximityToggle(proximityToggle);
-
-                    int catId = -1;
-                    if (eventData.ContainsKey("category_id") && !eventData["category_id"].IsNull) {
-                        catId = eventData["category_id"].Int;
-                    }
-                    eventCategoryIds[idx] = catId;
+                    int detailSlot = eventData.ContainsKey("detail_slot") ? eventData["detail_slot"].Int : 0;
+                    int detailPackNo = eventData.ContainsKey("detail_pack_no") ? eventData["detail_pack_no"].Int : 0;
 
                     DataList tagsList = new DataList();
                     if (eventData.ContainsKey("tag_ids") && eventData["tag_ids"].TokenType == TokenType.DataList) {
@@ -620,6 +826,16 @@ public class EventTimetable : UdonSharpBehaviour
                     for (int ti = 0; ti < tagsList.Count; ti++)
                         tagIds[ti] = (int)tagsList[ti].Double;
                     eventTagIds[idx] = tagIds;
+                    string[] tagLabels = BuildTagLabels(tagsList);
+
+                    eventItemScript.SetDetails(contentID, summary, details, groupId, supportedModel, detailSlot, detailPackNo, tagLabels, canvas, detailsPanelPrefab, tagBadgePrefab, detailsTextPrefab, detailsImagePrefab, videoPlayerPrefabs, linkedFieldContainerPrefab, mainPanelCanvasGroup, audioManager, this);
+                    eventItemScript.SetProximityToggle(proximityToggle);
+
+                    int catId = -1;
+                    if (eventData.ContainsKey("category_id") && !eventData["category_id"].IsNull) {
+                        catId = eventData["category_id"].Int;
+                    }
+                    eventCategoryIds[idx] = catId;
 
                     int programId = -1;
                     if (eventData.ContainsKey("program_id") && !eventData["program_id"].IsNull) {
@@ -648,7 +864,7 @@ public class EventTimetable : UdonSharpBehaviour
             }
 
             float progress = (float)eventDisplayIndex / eventListCount;
-            UpdateLoadingProgress(0.51f + progress * 0.47f);
+            UpdateLoadingProgress(0.08f + progress * 0.90f);
 
             if (eventDisplayTime.ElapsedMilliseconds > FRAME_PROCESS_LIMIT_MS)
             {
@@ -816,7 +1032,7 @@ public class EventTimetable : UdonSharpBehaviour
 
                 processedTimeItems++;
 
-                float progress = 0.98f + ((float)processedTimeItems / totalTimeItems) * 0.02f;
+                float progress = 0.98f + ((float)processedTimeItems / totalTimeItems) * 0.01f;
                 UpdateLoadingProgress(progress);
 
                 if (updateHeightTime.ElapsedMilliseconds > FRAME_PROCESS_LIMIT_MS)
@@ -842,11 +1058,17 @@ public class EventTimetable : UdonSharpBehaviour
 
         updateHeightTime.Stop();
         dateTimeContainers.SetActive(true);
-        UpdateLoadingProgress(1);
-        PrepareEventDisplay();
+        UpdateLoadingProgress(0.99f);
+        SendCustomEventDelayedFrames(nameof(ShowLoading100AndPrepareDisplay), 1);
 
         dateItemsArray = null;
         timeItemsArray = null;
+    }
+
+    public void ShowLoading100AndPrepareDisplay()
+    {
+        UpdateLoadingProgress(1);
+        SendCustomEventDelayedSeconds(nameof(PrepareEventDisplay), 0.15f);
     }
 
     private void InitializePlaceholderPool(Transform timeContainers, int itemsPerRow)
@@ -878,7 +1100,7 @@ public class EventTimetable : UdonSharpBehaviour
         }
     }
 
-    private void PrepareEventDisplay()
+    public void PrepareEventDisplay()
     {
         Canvas.ForceUpdateCanvases();
 
@@ -897,6 +1119,7 @@ public class EventTimetable : UdonSharpBehaviour
         if (loadingScreen != null && scrollViewCanvasGroup!= null)
         {
             loadingScreen.SetActive(false);
+            wingController.BeginTagGroupBuild();
             _eventLayoutReady = true;
             TryShowWingPanel();
 
@@ -908,7 +1131,6 @@ public class EventTimetable : UdonSharpBehaviour
         proximityToggle.OnLoadComplete();
         eventList.Clear();
         parsedChunksList = null;
-        LoadNextDetailedImage();
 
         CaptureInitialOrderKeys();
         CacheAllEventItemsForVirtualization();
@@ -991,21 +1213,54 @@ public class EventTimetable : UdonSharpBehaviour
             Debug.LogError("Schema JSON: 'tags' is missing or not a list.");
         }
 
+        if (rootDict.ContainsKey("tag_groups") && rootDict["tag_groups"].TokenType == TokenType.DataList) {
+            schemaTagGroupsList = rootDict["tag_groups"].DataList;
+        } else {
+            Debug.LogError("Schema JSON: 'tag_groups' is missing or not a list.");
+        }
+
         if (rootDict.ContainsKey("programs") && rootDict["programs"].TokenType == TokenType.DataList) {
             schemaProgramsList = rootDict["programs"].DataList;
         } else {
             Debug.LogError("Schema JSON: 'programs' is missing or not a list.");
         }
 
-        wingController.SetupChipsFromSchema(schemaCategoriesList, schemaTagsList, schemaProgramsList);
+        wingController.SetupChipsFromSchema(schemaCategoriesList, schemaTagsList, schemaTagGroupsList, schemaProgramsList);
 
         schemaCategoriesList = new DataList();
-        schemaTagsList = new DataList();
+        schemaTagGroupsList = new DataList();
         schemaProgramsList = new DataList();
 
         _schemaReady = true;
 
         SendCustomEventDelayedFrames(nameof(TryShowWingPanel), 1);
+    }
+
+    private string[] BuildTagLabels(DataList tagIdsList)
+    {
+        string[] tagLabels = new string[tagIdsList.Count];
+
+        for (int i = 0; i < tagIdsList.Count; i++)
+        {
+            int tagId = (int)tagIdsList[i].Double;
+            tagLabels[i] = GetTagLabelById(tagId);
+        }
+
+        return tagLabels;
+    }
+
+    private string GetTagLabelById(int tagId)
+    {
+        for (int i = 0; i < schemaTagsList.Count; i++)
+        {
+            DataDictionary tagDict = schemaTagsList[i].DataDictionary;
+            if (tagDict["id"].IsNull) continue;
+            if ((int)tagDict["id"].Double != tagId) continue;
+            if (tagDict["label"].IsNull) return "";
+            return tagDict["label"].String;
+        }
+
+        return "";
     }
 
     public void TryShowWingPanel()
@@ -1019,103 +1274,142 @@ public class EventTimetable : UdonSharpBehaviour
         wingController.SetNeedsScrollbarFinalize();
     }
 
-    private void StartImgsJsonParsing(string jsonResponse)
+    private void StartDetailedWnpkParsing(byte[] packBytes)
     {
-        arrayContent_imgs = "";
-        splitStartIndex_imgs = 0;
-        imgsJsonChunkIndex = 0;
-        imgsJsonParseIndex = 0;
+        if (!TryParseWnpkCommon(packBytes, "Detailed WNPK parse error"))
+        {
+            ClearDetailedTemporaryState();
+            requestedDetailedImagesUrl = VRCUrl.Empty;
+            requestedDetailsPanel = null;
+            return;
+        }
+
+        detailedWnpkBytes = packBytes;
+        detailedWnpkOffsets = parsedWnpkOffsets;
+        detailedWnpkLengths = parsedWnpkLengths;
+
+        StartDetailedJsonParsing(parsedWnpkMetaJson[0]);
+
+        parsedWnpkMetaJson = null;
+        parsedWnpkOffsets = null;
+        parsedWnpkLengths = null;
+    }
+
+    private void StartDetailedJsonParsing(string jsonResponse)
+    {
+        detailedArrayContent = null;
+        detailedSplitStartIndex = 0;
+        detailedJsonChunkIndex = 0;
+        detailedImageParseIndex = 0;
+        cachedDetailedJsonResult = default;
 
         int start = jsonResponse.IndexOf('[');
         int end = jsonResponse.LastIndexOf(']');
         if (start >= 0 && end > start)
         {
-            arrayContent_imgs = jsonResponse.Substring(start + 1, end - start - 1);
-            SplitImgsJsonChunksAsync();
+            detailedArrayContent = jsonResponse.Substring(start + 1, end - start - 1);
+            SplitDetailedJsonChunksAsync();
         }
         else
         {
-            Debug.LogError("Failed to find valid Images JSON array in response.");
+            Debug.LogError("Failed to find valid detailed WNPK meta JSON array.");
+            ClearDetailedTemporaryState();
+            requestedDetailedImagesUrl = VRCUrl.Empty;
+            requestedDetailsPanel = null;
         }
     }
 
-    public void SplitImgsJsonChunksAsync()
+    public void SplitDetailedJsonChunksAsync()
     {
-        splitImgsProcessTime.Restart();
+        splitDetailedProcessTime.Restart();
 
-        while (splitStartIndex_imgs < arrayContent_imgs.Length)
+        while (detailedSplitStartIndex < detailedArrayContent.Length)
         {
-            int nextComma = arrayContent_imgs.IndexOf("},", splitStartIndex_imgs);
+            int nextComma = detailedArrayContent.IndexOf("},", detailedSplitStartIndex);
             bool isLastElement = nextComma == -1;
 
-            int endIndex = isLastElement ? arrayContent_imgs.Length : nextComma + 1;
-            string element = arrayContent_imgs.Substring(splitStartIndex_imgs, endIndex - splitStartIndex_imgs).Trim();
+            int endIndex = isLastElement ? detailedArrayContent.Length : nextComma + 1;
+            string element = detailedArrayContent.Substring(detailedSplitStartIndex, endIndex - detailedSplitStartIndex).Trim();
 
             if (!element.StartsWith("{")) element = $"{{{element}";
             if (!element.EndsWith("}")) element = $"{element}}}";
 
-            imgsJsonChunksList.Add(new DataToken(element));
-            splitStartIndex_imgs = endIndex + 1;
+            detailedJsonChunksList.Add(new DataToken(element));
+            detailedSplitStartIndex = endIndex + 1;
 
-            if (splitImgsProcessTime.ElapsedMilliseconds > FRAME_PROCESS_LIMIT_MS)
+            if (splitDetailedProcessTime.ElapsedMilliseconds > FRAME_PROCESS_LIMIT_MS)
             {
-                SendCustomEventDelayedFrames(nameof(SplitImgsJsonChunksAsync), 1);
+                SendCustomEventDelayedFrames(nameof(SplitDetailedJsonChunksAsync), 1);
                 return;
             }
         }
 
-        ParseImgsJsonChunksAsync();
+        splitDetailedProcessTime.Stop();
+        ParseDetailedJsonChunksAsync();
     }
 
-    public void ParseImgsJsonChunksAsync()
+    public void ParseDetailedJsonChunksAsync()
     {
-        imgsJsonChunksParseProcessTime.Restart();
+        detailedJsonChunksParseProcessTime.Restart();
 
-        while (imgsJsonChunkIndex < imgsJsonChunksList.Count)
+        while (detailedJsonChunkIndex < detailedJsonChunksList.Count)
         {
-            string chunk = imgsJsonChunksList[imgsJsonChunkIndex].String;
+            string chunk = detailedJsonChunksList[detailedJsonChunkIndex].String;
 
             if (VRCJson.TryDeserializeFromJson(chunk, out DataToken result))
             {
-                parsedChunksImgsList.Add(result);
+                parsedDetailedChunksList.Add(result);
             }
             else
             {
-                Debug.LogError($"Failed to parse Images chunk {imgsJsonChunkIndex}/{imgsJsonChunksList.Count}.");
+                Debug.LogError($"Failed to parse detailed JSON chunk {detailedJsonChunkIndex}/{detailedJsonChunksList.Count}.");
             }
 
-            imgsJsonChunkIndex++;
+            detailedJsonChunkIndex++;
 
-            if (imgsJsonChunksParseProcessTime.ElapsedMilliseconds > FRAME_PROCESS_LIMIT_MS)
+            if (detailedJsonChunksParseProcessTime.ElapsedMilliseconds > FRAME_PROCESS_LIMIT_MS)
             {
-                SendCustomEventDelayedFrames(nameof(ParseImgsJsonChunksAsync), 1);
+                SendCustomEventDelayedFrames(nameof(ParseDetailedJsonChunksAsync), 1);
                 return;
             }
         }
 
-        cachedJsonResultImgs = CombineChunksToCachedResult(parsedChunksImgsList);
+        cachedDetailedJsonResult = CombineChunksToCachedResult(parsedDetailedChunksList);
+        detailedJsonChunksParseProcessTime.Stop();
         ParseDetailedImagesJson();
     }
 
     public void ParseDetailedImagesJson()
     {
-        imgsJsonParseProcessTime.Restart();
+        detailedJsonParseProcessTime.Restart();
 
-        if (cachedJsonResultImgs.TokenType == TokenType.DataList)
+        if (cachedDetailedJsonResult.TokenType == TokenType.DataList)
         {
-            int count = cachedJsonResultImgs.DataList.Count;
+            int count = cachedDetailedJsonResult.DataList.Count;
 
-            if (detailedImageIds == null || detailedImageIds.Length != count) {
-                detailedImageIds = new string[count];
-                detailedImageBytes = new byte[count][];
-                detailedImageParseIndex = 0;
+            if (detailedImageParseIndex == 0) {
+                int oldCount = (detailedImageIds != null) ? detailedImageIds.Length : 0;
+
+                string[] oldIds = detailedImageIds;
+                byte[][] oldBytes = detailedImageBytes;
+
+                detailedImageIds = new string[oldCount + count];
+                detailedImageBytes = new byte[oldCount + count][];
+
+                for (int i = 0; i < oldCount; i++)
+                {
+                    detailedImageIds[i] = oldIds[i];
+                    detailedImageBytes[i] = oldBytes[i];
+                }
             }
 
-            while (imgsJsonParseIndex < count)
+            int baseIndex = detailedImageIds.Length - count;
+
+            while (detailedImageParseIndex < count)
             {
-                var detailedImageToken = cachedJsonResultImgs.DataList[imgsJsonParseIndex];
-                int idx = detailedImageParseIndex;
-                imgsJsonParseIndex++;
+                int packIndex = detailedImageParseIndex;
+                var detailedImageToken = cachedDetailedJsonResult.DataList[packIndex];
+                int idx = baseIndex + packIndex;
                 detailedImageParseIndex++;
 
                 if (detailedImageToken.TokenType == TokenType.DataDictionary)
@@ -1130,32 +1424,132 @@ public class EventTimetable : UdonSharpBehaviour
                     newDetailedImgDictionary.Add("image_id", detailedImageDict["image_id"]);
                     newDetailedImgDictionary.Add("width", new DataToken((int)detailedImageDict["width"].Double));
                     newDetailedImgDictionary.Add("height", new DataToken((int)detailedImageDict["height"].Double));
-                    detailedImageBytes[idx] = Convert.FromBase64String(detailedImageDict["base64DetailedImage"].String);
+                    detailedImageBytes[idx] = GetDetailedBytesFromWnpk(packIndex);
                     detailedImagesList.Add(new DataToken(newDetailedImgDictionary));
                 }
                 else
                 {
-                    Debug.LogError("An element in detailed images is not a DataDictionary.");
+                    Debug.LogError("An element in detailed WNPK meta is not a DataDictionary.");
                 }
 
-                if (imgsJsonParseProcessTime.ElapsedMilliseconds > FRAME_PROCESS_LIMIT_MS)
+                if (detailedJsonParseProcessTime.ElapsedMilliseconds > FRAME_PROCESS_LIMIT_MS)
                 {
                     SendCustomEventDelayedFrames(nameof(ParseDetailedImagesJson), 1);
                     return;
                 }
             }
 
-            cachedJsonResultImgs = default;
-            loadingChunkIndex++;
+            RegisterFetchedDetailedImagesUrl(requestedDetailedImagesUrl);
 
-            imgsJsonChunksList.Clear();
-            parsedChunksImgsList.Clear();
-            LoadNextDetailedImage();
+            ClearDetailedTemporaryState();
+
+            if (requestedDetailsPanel != null) {
+                requestedDetailsPanel.OnDetailedImagesLoaded();
+            }
+
+            requestedDetailedImagesUrl = VRCUrl.Empty;
+            requestedDetailsPanel = null;
+        } else {
+            Debug.LogError("Detailed WNPK meta root is not a DataList.");
+            ClearDetailedTemporaryState();
+            requestedDetailedImagesUrl = VRCUrl.Empty;
+            requestedDetailsPanel = null;
+            return;
         }
-        else
+    }
+    
+    private byte[] GetDetailedBytesFromWnpk(int index)
+    {
+        if (detailedWnpkBytes == null || detailedWnpkOffsets == null || detailedWnpkLengths == null) return null;
+        if (index < 0 || index >= detailedWnpkLengths.Length) return null;
+
+        int len = detailedWnpkLengths[index];
+        if (len <= 0) return null;
+
+        int off = detailedWnpkOffsets[index];
+        if (off < 0 || off + len > detailedWnpkBytes.Length) return null;
+
+        byte[] dst = new byte[len];
+        Array.Copy(detailedWnpkBytes, off, dst, 0, len);
+        return dst;
+    }
+
+    private void ClearDetailedTemporaryState()
+    {
+        detailedWnpkBytes = null;
+        detailedWnpkOffsets = null;
+        detailedWnpkLengths = null;
+
+        detailedArrayContent = null;
+        detailedSplitStartIndex = 0;
+        detailedJsonChunkIndex = 0;
+        detailedImageParseIndex = 0;
+        cachedDetailedJsonResult = default;
+
+        if (detailedJsonChunksList != null) detailedJsonChunksList.Clear();
+        if (parsedDetailedChunksList != null) parsedDetailedChunksList.Clear();
+    }
+
+    public void RequestDetailedImages(DetailsPanelController detailsPanel, int detailSlot, int detailPackNo)
+    {
+        if (detailsPanel == null) return;
+
+        VRCUrl detailedImagesUrl = GetDetailedImagesUrl(detailSlot, detailPackNo);
+        if (VRCUrl.IsNullOrEmpty(detailedImagesUrl))
         {
-            Debug.LogError("Detailed images JSON root is not a DataList.");
+            Debug.LogError($"Detailed images url not found. slot={detailSlot}, packNo={detailPackNo}");
+            return;
         }
+
+        if (IsDetailedImagesUrlFetched(detailedImagesUrl))
+        {
+            detailsPanel.OnDetailedImagesLoaded();
+            return;
+        }
+
+        requestedDetailsPanel = detailsPanel;
+        requestedDetailedImagesUrl = detailedImagesUrl;
+
+        ClearDetailedTemporaryState();
+
+        VRCStringDownloader.LoadUrl(detailedImagesUrl, this.GetComponent<UdonBehaviour>());
+    }
+
+    private VRCUrl GetDetailedImagesUrl(int detailSlot, int detailPackNo)
+    {
+        if (detailSlot < 1 || detailSlot > 3) return VRCUrl.Empty;
+        if (detailPackNo < 1 || detailPackNo > DETAILED_PACKS_PER_SLOT) return VRCUrl.Empty;
+        if (activeDetailedImagesUrls == null) return VRCUrl.Empty;
+
+        int index = (detailSlot - 1) * DETAILED_PACKS_PER_SLOT + (detailPackNo - 1);
+        if (index < 0 || index >= activeDetailedImagesUrls.Length) return VRCUrl.Empty;
+
+        return activeDetailedImagesUrls[index];
+    }
+
+    public DataList GetCurrentDetailedImagesList()
+    {
+        return detailedImagesList;
+    }
+
+    private void RegisterFetchedDetailedImagesUrl(VRCUrl url)
+    {
+        if (IsDetailedImagesUrlFetched(url)) return;
+
+        fetchedDetailedImagesUrls.Add(new DataToken(url.Get()));
+    }
+
+    private bool IsDetailedImagesUrlFetched(VRCUrl url)
+    {
+        string targetUrl = url.Get();
+        for (int i = 0; i < fetchedDetailedImagesUrls.Count; i++)
+        {
+            if (fetchedDetailedImagesUrls[i].String == targetUrl) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public byte[] GetDetailedImageBytes(string imageId)
@@ -1326,21 +1720,6 @@ public class EventTimetable : UdonSharpBehaviour
         }
     }
 
-    private void LoadNextDetailedImage()
-    {
-        if (loadingChunkIndex < detailedImagesChunkCount)
-        {
-            VRCUrl detailedImagesUrl = activeDetailedImagesUrls[loadingChunkIndex];
-            VRCStringDownloader.LoadUrl(detailedImagesUrl, this.GetComponent<UdonBehaviour>());
-            return;
-        }
-
-        splitImgsProcessTime.Stop();
-        imgsJsonChunksParseProcessTime.Stop();
-        imgsJsonParseProcessTime.Stop();
-        arrayContent_imgs = null;
-    }
-
     public void OnClickReturnButton()
     {
         currentLerpTime = 0f;
@@ -1402,12 +1781,29 @@ public class EventTimetable : UdonSharpBehaviour
             if (updateDirection != 0)
             {
                 int newIndex = currentStickyIndex + updateDirection;
-                if (newIndex >= 0 && newIndex < dateTimeContainersChildCount)
+                while (newIndex >= 0 && newIndex < dateTimeContainersChildCount)
                 {
-                    if (StickDateByIndex(newIndex) == 0)
+                    Transform child = dateTimeContainersRect.GetChild(newIndex);
+                    if (!child.gameObject.activeSelf)
+                    {
+                        newIndex += updateDirection;
+                        continue;
+                    }
+
+                    int result = StickDateByIndex(newIndex);
+
+                    if ((updateDirection == 1 && result == -1) || (updateDirection == -1 && result == 1))
+                    {
+                        return;
+                    }
+
+                    if (result == 0)
                     {
                         currentStickyIndex = newIndex;
+                        return;
                     }
+
+                    newIndex += updateDirection;
                 }
             }
         }
@@ -1472,26 +1868,6 @@ public class EventTimetable : UdonSharpBehaviour
         }
     }
 
-    public DataList GetDetailedImgsByContent(int contentID)
-    {
-        var detailedImgsByContentList = new DataList();
-
-        for (int i = 0; i < detailedImagesList.Count; i++)
-        {
-            var detailedImgsDataDictionary = detailedImagesList[i];
-            if (detailedImgsDataDictionary.TokenType == TokenType.DataDictionary)
-            {
-                var detailedImgsDict = detailedImgsDataDictionary.DataDictionary;
-                if (detailedImgsDict["content_id"].Int == contentID)
-                {
-                    detailedImgsByContentList.Add(detailedImgsDict);
-                }
-            }
-        }
-
-        return detailedImgsByContentList;
-    }
-
     public TextureFormat GetTextureFormat()
     {
         return textureFormat;
@@ -1537,7 +1913,7 @@ public class EventTimetable : UdonSharpBehaviour
                 int supMob = (eventSupportsMobile != null && i < eventSupportsMobile.Length) ? eventSupportsMobile[i] : -1;
 
                 bool isCategoryMatch = isAllCat || (catId >= 0 && ContainsInt(selectedCategoryIds, catId));
-                bool isTagMatch = isAllTag || AnyOverlap(selectedTagIds, myTags);
+                bool isTagMatch = isAllTag || ContainsAllInts(myTags, selectedTagIds);
                 bool isProgMatch = isAllProg || (progId >= 0 && ContainsInt(selectedProgramIds, progId));
                 bool isTypeMatch = isAllType || (typeVal >= 0 && ContainsInt(selectedTypeIds, typeVal));
                 bool isDevMatch = isAllDev || (supMob >= 0 && ContainsInt(selectedDeviceIds, supMob));
@@ -1783,18 +2159,27 @@ public class EventTimetable : UdonSharpBehaviour
         return false;
     }
 
-    private bool AnyOverlap(int[] a, int[] b)
+    private bool ContainsAllInts(int[] source, int[] required)
     {
-        if (a == null || a.Length == 0) return true;
-        if (b == null || b.Length == 0) return false;
+        if (required == null || required.Length == 0) return true;
+        if (source == null || source.Length == 0) return false;
 
-        if (a.Length > b.Length) { var tmp = a; a = b; b = tmp; }
+        for (int i = 0; i < required.Length; i++)
+        {
+            bool found = false;
 
-        for (int i = 0; i < a.Length; i++)
-            for (int j = 0; j < b.Length; j++)
-                if (a[i] == b[j]) return true;
+            for (int j = 0; j < source.Length; j++)
+            {
+                if (source[j] == required[i]) {
+                    found = true;
+                    break;
+                }
+            }
 
-        return false;
+            if (!found) return false;
+        }
+
+        return true;
     }
 
     private void ApplyNoContentScrollState()
@@ -1935,34 +2320,46 @@ public class EventTimetable : UdonSharpBehaviour
         dateTimeContainersChildCount = 0;
         currentStickyIndex = -1;
         initialVerticalPosition = -1;
+        totalTimeItems = 0;
+        processedTimeItems = 0;
 
         eventList = new DataList();
         detailedImagesList = new DataList();
 
         thumbnailBytes = null;
+        wnpkBytes = null;
+        wnpkThumbOffsets = null;
+        wnpkThumbLengths = null;
         detailedImageBytes = null;
         detailedImageIds = null;
+        detailedWnpkBytes = null;
+        detailedWnpkOffsets = null;
+        detailedWnpkLengths = null;
 
         jsonParseIndex = 0;
-        imgsJsonParseIndex = 0;
         eventDisplayIndex = 0;
-        loadingChunkIndex = 0;
-        detailedImageParseIndex = 0;
 
         splitStartIndex = 0;
         jsonChunkIndex = 0;
         parsedChunksList = new DataList();
         jsonChunksList = new DataList();
 
-        splitStartIndex_imgs = 0;
-        imgsJsonChunkIndex = 0;
-        parsedChunksImgsList = new DataList();
-        imgsJsonChunksList = new DataList();
+        detailedArrayContent = null;
+        detailedSplitStartIndex = 0;
+        detailedJsonChunkIndex = 0;
+        detailedImageParseIndex = 0;
+        cachedDetailedJsonResult = default;
 
         cachedJsonResult = default;
-        cachedJsonResultImgs = default;
+        parsedDetailedChunksList = new DataList();
+        detailedJsonChunksList = new DataList();
+
+        requestedDetailedImagesUrl = VRCUrl.Empty;
+        requestedDetailsPanel = null;
+        fetchedDetailedImagesUrls = new DataList();
 
         backGroundImage.sprite = backGroundSprite;
+        ApplyOutsideView();
 
         SetScrollPositionImmediate(1.0f);
         _ticksPaused = false;
@@ -1971,8 +2368,7 @@ public class EventTimetable : UdonSharpBehaviour
         scrollViewCanvasGroup.interactable = false;
         scrollViewCanvasGroup.blocksRaycasts = false;
 
-        returnButton.SetActive(false);
-        returnButtonImage.color = new Color(1f,1f,1f,0f);
+        ResetReturnButtonImmediate();
 
         loadingProgressBar.value = 0f;
         loadingProgressText.text = "0%";
@@ -1992,6 +2388,7 @@ public class EventTimetable : UdonSharpBehaviour
 
         schemaCategoriesList = new DataList();
         schemaTagsList = new DataList();
+        schemaTagGroupsList = new DataList();
         schemaProgramsList = new DataList();
     }
 }

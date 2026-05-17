@@ -75,3 +75,5 @@ Assets/PackageMakerWindowData.asset*
 # --- シーンは各自で管理 ---
 /Assets/Scenes/
 /Assets/Scenes.meta
+
+AGENTS.md

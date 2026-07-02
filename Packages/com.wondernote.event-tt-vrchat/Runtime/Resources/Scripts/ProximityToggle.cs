@@ -16,7 +16,11 @@ public class ProximityToggle : UdonSharpBehaviour
     private bool initialized = false;
     private bool loadCompleted = false;
 
-    private bool cleanupScheduled = false;
+    private const float CleanupDelaySeconds = 900f;
+    private const float CleanupTimeToleranceSeconds = 1f;
+    private bool isLocalPlayerInside = false;
+    private const float InvalidCleanupDueTime = -1f;
+    private float cleanupDueTime = InvalidCleanupDueTime;
 
     public SphereCollider TriggerCollider => triggerCollider;
 
@@ -37,7 +41,8 @@ public class ProximityToggle : UdonSharpBehaviour
         if (!player.isLocal) return;
         eventTimetable.ApplyInsideView();
 
-        cleanupScheduled = false;
+        isLocalPlayerInside = true;
+        cleanupDueTime = InvalidCleanupDueTime;
 
         if (initialized) {
             if (!loadCompleted) return;
@@ -56,6 +61,7 @@ public class ProximityToggle : UdonSharpBehaviour
     public override void OnPlayerTriggerExit(VRCPlayerApi player)
     {
         if (!player.isLocal) return;
+        isLocalPlayerInside = false;
         eventTimetable.ApplyOutsideView();
 
         if (initialized) {
@@ -67,10 +73,8 @@ public class ProximityToggle : UdonSharpBehaviour
             SetCanvasGroupVisible(detailsPanelGroup, false);
             wingPanel.SetActive(false);
 
-            if (!cleanupScheduled) {
-                cleanupScheduled = true;
-                SendCustomEventDelayedSeconds(nameof(DoCleanupIfStillOutside), 900f);
-            }
+            cleanupDueTime = Time.time + CleanupDelaySeconds;
+            SendCustomEventDelayedSeconds(nameof(DoCleanupIfStillOutside), CleanupDelaySeconds);
         }
     }
 
@@ -100,8 +104,11 @@ public class ProximityToggle : UdonSharpBehaviour
 
     public void DoCleanupIfStillOutside()
     {
-        if (!cleanupScheduled) return;
-        cleanupScheduled = false;
+        if (isLocalPlayerInside) return;
+        if (cleanupDueTime < 0f) return;
+        if (Time.time + CleanupTimeToleranceSeconds < cleanupDueTime) return;
+
+        cleanupDueTime = InvalidCleanupDueTime;
 
         eventTimetable.ResetTimetable();
 

@@ -2231,6 +2231,7 @@ MonoBehaviour:
   scrollViewCanvasGroup: {fileID: 8393211767036549363}
   eventTimetable: {fileID: 440391836355960606}
   triggerCollider: {fileID: 7051559565614497403}
+  uiCanvasCollider: {fileID: 5990507811338692717}
   returnButton: {fileID: 4673012502555897285}
   wingPanel: {fileID: 4284895365833608400}
 --- !u!135 &7051559565614497403

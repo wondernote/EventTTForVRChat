@@ -19,6 +19,8 @@ public class ProximityToggle : UdonSharpBehaviour
 
     private const float CleanupDelaySeconds = 900f;
     private const float CleanupTimeToleranceSeconds = 1f;
+    private const float FrontEnterThreshold = -0.2f;
+    private const float FrontExitThreshold = 0.2f;
     private bool isLocalPlayerInside = false;
     private const float InvalidCleanupDueTime = -1f;
     private float cleanupDueTime = InvalidCleanupDueTime;
@@ -42,6 +44,17 @@ public class ProximityToggle : UdonSharpBehaviour
     public override void OnPlayerTriggerEnter(VRCPlayerApi player)
     {
         if (!player.isLocal) return;
+
+        if (IsPlayerInFrontEnterRange(player))
+        {
+            EnterEffectiveProximity();
+        }
+    }
+
+    private void EnterEffectiveProximity()
+    {
+        if (isLocalPlayerInside) return;
+
         SetUiCanvasColliderEnabled(true);
         eventTimetable.ApplyInsideView();
 
@@ -62,9 +75,36 @@ public class ProximityToggle : UdonSharpBehaviour
         };
     }
 
+    public override void OnPlayerTriggerStay(VRCPlayerApi player)
+    {
+        if (!player.isLocal) return;
+
+        if (isLocalPlayerInside)
+        {
+            if (IsPlayerBehindExitRange(player))
+            {
+                ExitEffectiveProximity();
+            }
+
+            return;
+        }
+
+        if (IsPlayerInFrontEnterRange(player))
+        {
+            EnterEffectiveProximity();
+        }
+    }
+
     public override void OnPlayerTriggerExit(VRCPlayerApi player)
     {
         if (!player.isLocal) return;
+        ExitEffectiveProximity();
+    }
+
+    private void ExitEffectiveProximity()
+    {
+        if (!isLocalPlayerInside) return;
+
         isLocalPlayerInside = false;
         eventTimetable.OnPointerExitMain();
         SetUiCanvasColliderEnabled(false);
@@ -82,6 +122,23 @@ public class ProximityToggle : UdonSharpBehaviour
             cleanupDueTime = Time.time + CleanupDelaySeconds;
             SendCustomEventDelayedSeconds(nameof(DoCleanupIfStillOutside), CleanupDelaySeconds);
         }
+    }
+
+    private bool IsPlayerInFrontEnterRange(VRCPlayerApi player)
+    {
+        return GetLocalPlayerZ(player) <= FrontEnterThreshold;
+    }
+
+    private bool IsPlayerBehindExitRange(VRCPlayerApi player)
+    {
+        return GetLocalPlayerZ(player) >= FrontExitThreshold;
+    }
+
+    private float GetLocalPlayerZ(VRCPlayerApi player)
+    {
+        Vector3 playerPosition = player.GetPosition();
+        Vector3 localPosition = triggerCollider.transform.InverseTransformPoint(playerPosition);
+        return localPosition.z;
     }
 
     private void Initialize()
